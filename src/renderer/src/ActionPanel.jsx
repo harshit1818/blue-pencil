@@ -1,24 +1,11 @@
-import { useState, useEffect } from 'react'
 import { Check, Copy, Loader2, AlertCircle } from 'lucide-react'
-import { color, font, radius, space } from '@tokens'
+import { font, radius, space } from '@tokens'
+import { useThemeColors } from './useTheme.js'
 
 // Presentational popover card content, shared by the in-app popover (App.jsx)
 // and the hotkey overlay (HotkeyPopover.jsx). No state of its own beyond theme;
 // all data + handlers arrive as props. The card *chrome* (bg/border/radius/
 // shadow) lives in each host's wrapper, not here.
-
-function useThemeColors() {
-  const pick = () =>
-    window.matchMedia?.('(prefers-color-scheme: dark)').matches ? color.dark : color.light
-  const [c, setC] = useState(pick)
-  useEffect(() => {
-    const mq = window.matchMedia('(prefers-color-scheme: dark)')
-    const onChange = () => setC(pick())
-    mq.addEventListener('change', onChange)
-    return () => mq.removeEventListener('change', onChange)
-  }, [])
-  return c
-}
 
 export default function ActionPanel({
   providerLabel,

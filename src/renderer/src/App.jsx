@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { PenLine, X, CornerDownLeft, KeyRound } from 'lucide-react'
-import { color, font, radius, shadow, space } from '@tokens'
+import { font, radius, shadow, space } from '@tokens'
 import ActionPanel from './ActionPanel.jsx'
+import { useThemeColors } from './useTheme.js'
 
 // All visual values come from src/shared/tokens.js — nothing is hardcoded here.
 
@@ -16,20 +17,6 @@ const TONES = ['Professional', 'Confident', 'Friendly', 'Concise']
 
 const ERROR_GENERIC = 'Couldn’t reach the model. Check your key and try again.'
 const ERROR_NO_KEY = 'Add the key above to get started.'
-
-// Track macOS system appearance — Electron mirrors it to prefers-color-scheme.
-function useThemeColors() {
-  const pick = () =>
-    window.matchMedia?.('(prefers-color-scheme: dark)').matches ? color.dark : color.light
-  const [c, setC] = useState(pick)
-  useEffect(() => {
-    const mq = window.matchMedia('(prefers-color-scheme: dark)')
-    const onChange = () => setC(pick())
-    mq.addEventListener('change', onChange)
-    return () => mq.removeEventListener('change', onChange)
-  }, [])
-  return c
-}
 
 export default function App() {
   const C = useThemeColors()

@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Copy, CornerDownLeft } from 'lucide-react'
-import { color, font, radius } from '@tokens'
+import { font, radius } from '@tokens'
 import ActionPanel from './ActionPanel.jsx'
+import { useThemeColors } from './useTheme.js'
 
 // The hotkey overlay's container: a read-only preview of the grabbed text plus
 // the shared ActionPanel. Floats over other apps; the active provider comes from
@@ -20,19 +21,6 @@ const HOTKEY_LABEL = "⌘⇧'"
 const ERROR_GENERIC = 'Couldn’t reach the model. Check your key and try again.'
 const ERROR_NO_KEY = 'Add a key in Blue Pencil to get started.'
 const COPIED_HINT = 'Copied — press ⌘V in your app.'
-
-function useThemeColors() {
-  const pick = () =>
-    window.matchMedia?.('(prefers-color-scheme: dark)').matches ? color.dark : color.light
-  const [c, setC] = useState(pick)
-  useEffect(() => {
-    const mq = window.matchMedia('(prefers-color-scheme: dark)')
-    const onChange = () => setC(pick())
-    mq.addEventListener('change', onChange)
-    return () => mq.removeEventListener('change', onChange)
-  }, [])
-  return c
-}
 
 export default function HotkeyPopover() {
   const C = useThemeColors()
