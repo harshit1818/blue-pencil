@@ -14,7 +14,16 @@ const api = {
     const h = (_e, s) => cb(s)
     ipcRenderer.on('settings:changed', h)
     return () => ipcRenderer.removeListener('settings:changed', h)
-  }
+  },
+  // Hotkey overlay (used by popover.html's renderer; harmless in the main window).
+  onPopoverShow: (cb) => {
+    const h = (_e, p) => cb(p)
+    ipcRenderer.on('popover:show', h)
+    return () => ipcRenderer.removeListener('popover:show', h)
+  },
+  popoverResize: (w, h) => ipcRenderer.send('popover:resize', w, h),
+  popoverDismiss: () => ipcRenderer.send('popover:dismiss'),
+  clipboardWrite: (text) => ipcRenderer.invoke('clipboard:write', text)
 }
 
 contextBridge.exposeInMainWorld('api', api)

@@ -20,6 +20,14 @@ export default defineConfig({
   renderer: {
     resolve: { alias: { '@tokens': tokens } },
     server: { fs: { allow: [root] } },
-    plugins: [react()]
+    plugins: [react()],
+    build: {
+      rollupOptions: {
+        input: {
+          index: resolve(root, 'src/renderer/index.html'),
+          popover: resolve(root, 'src/renderer/popover.html')
+        }
+      }
+    }
   }
 })

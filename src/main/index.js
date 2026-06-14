@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell, nativeTheme } from 'electron'
+import { app, BrowserWindow, ipcMain, shell, nativeTheme, clipboard } from 'electron'
 import { join } from 'path'
 import { readFileSync, writeFileSync } from 'fs'
 import { color } from '@tokens'
@@ -6,6 +6,8 @@ import { transform } from './transform.js'
 import { listProviders, effectiveSettings, isValidProvider } from './providers.js'
 import { setProviderId, setModelId } from './settings.js'
 import { hasApiKey, setApiKey, seedFromEnv } from './keychain.js'
+import { registerHotkey, unregisterHotkey } from './hotkey.js'
+import { resizeOverlay, hideOverlay } from './overlay.js'
 
 // After any settings write, push the effective snapshot to every window so they
 // stay in sync. A no-op echo with one window today; the overlay just subscribes.
@@ -109,6 +111,13 @@ app.whenReady().then(async () => {
     return effectiveSettings()
   })
 
+  // Hotkey overlay channels.
+  ipcMain.on('popover:resize', (_event, w, h) => resizeOverlay(w, h))
+  ipcMain.on('popover:dismiss', () => hideOverlay())
+  ipcMain.handle('clipboard:write', (_event, text) => clipboard.writeText(text ?? ''))
+
+  registerHotkey()
+
   const win = createWindow()
 
   // Keep the native window background in step with system appearance so theme
@@ -124,3 +133,5 @@ app.whenReady().then(async () => {
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
 })
+
+app.on('will-quit', unregisterHotkey)
