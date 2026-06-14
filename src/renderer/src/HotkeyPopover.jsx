@@ -46,6 +46,7 @@ export default function HotkeyPopover() {
   const [copied, setCopied] = useState(false)
   const [hint, setHint] = useState(null)
   const rootRef = useRef(null)
+  const onKeyRef = useRef(null)
 
   const providerLabel = providers.find((p) => p.id === provider)?.label || provider
   const words = captured.trim() ? captured.trim().split(/\s+/).length : 0
@@ -83,13 +84,13 @@ export default function HotkeyPopover() {
     }
   }, [])
 
-  // Escape dismisses (focus returns to the prior app on hide).
+  // Keyboard-first: Escape dismisses; Enter runs the primary; 1-4 run the four
+  // actions. A stable wrapper calls the latest handler (held in a ref) so it
+  // always sees current state without re-subscribing each render.
   useEffect(() => {
-    const onKey = (e) => {
-      if (e.key === 'Escape') window.api?.popoverDismiss?.()
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
+    const handler = (e) => onKeyRef.current?.(e)
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
   }, [])
 
   // Report the card's size so the transparent window hugs it (no big click area).
@@ -150,6 +151,23 @@ export default function HotkeyPopover() {
     setCopied(true)
     setHint(COPIED_HINT)
     setTimeout(() => setCopied(false), 1300)
+  }
+
+  // Reassigned every render so the keydown wrapper always sees fresh state.
+  onKeyRef.current = (e) => {
+    if (e.key === 'Escape') {
+      window.api?.popoverDismiss?.()
+      return
+    }
+    if (e.metaKey || e.ctrlKey || e.altKey) return
+    if (!captured.trim() || busy) return
+    if (e.key === 'Enter') {
+      if (result) deliver()
+      else doAction(ACTIONS[0].id)
+      return
+    }
+    const n = Number(e.key)
+    if (Number.isInteger(n) && n >= 1 && n <= ACTIONS.length) doAction(ACTIONS[n - 1].id)
   }
 
   return (
