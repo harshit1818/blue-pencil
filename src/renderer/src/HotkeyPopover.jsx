@@ -65,6 +65,9 @@ export default function HotkeyPopover() {
       setHint(null)
     })
     const unsubSettings = window.api?.onSettingsChanged?.(applySettings)
+    // Tell main the listeners are attached so it can safely deliver the capture
+    // (fixes the first-summon race).
+    window.api?.popoverReady?.()
     Promise.all([
       window.api?.listProviders?.() ?? [],
       window.api?.getSettings?.() ?? { provider: '' }

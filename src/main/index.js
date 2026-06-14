@@ -7,7 +7,7 @@ import { listProviders, effectiveSettings, isValidProvider } from './providers.j
 import { setProviderId, setModelId } from './settings.js'
 import { hasApiKey, setApiKey, seedFromEnv } from './keychain.js'
 import { registerHotkey, unregisterHotkey } from './hotkey.js'
-import { resizeOverlay, hideOverlay } from './overlay.js'
+import { resizeOverlay, hideOverlay, markRendererReady } from './overlay.js'
 
 // After any settings write, push the effective snapshot to every window so they
 // stay in sync. A no-op echo with one window today; the overlay just subscribes.
@@ -112,6 +112,7 @@ app.whenReady().then(async () => {
   })
 
   // Hotkey overlay channels.
+  ipcMain.on('popover:ready', () => markRendererReady())
   ipcMain.on('popover:resize', (_event, w, h) => resizeOverlay(w, h))
   ipcMain.on('popover:dismiss', () => hideOverlay())
   ipcMain.handle('clipboard:write', (_event, text) => clipboard.writeText(text ?? ''))

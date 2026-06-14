@@ -6,8 +6,11 @@ import { join } from 'path'
 // uses so its renderer state persists. Same preload as the main window.
 
 let win = null
+let rendererReady = false // the popover renderer has mounted + attached its listeners
+let pendingText = null // text captured for a summon not yet delivered to the renderer
 
 function create() {
+  rendererReady = false
   win = new BrowserWindow({
     width: 340,
     height: 420,
@@ -30,6 +33,8 @@ function create() {
   win.on('blur', hideOverlay) // clicking into another app dismisses
   win.on('closed', () => {
     win = null
+    rendererReady = false
+    pendingText = null
   })
 
   if (process.env.ELECTRON_RENDERER_URL) {
@@ -54,17 +59,29 @@ function positionAtCursor() {
   win.setPosition(Math.round(x), Math.round(y))
 }
 
+// Deliver the captured text only once the renderer is listening. This avoids the
+// first-summon race: 'popover:show' fired on did-finish-load could land before
+// the renderer's onPopoverShow listener was attached, dropping the first capture.
+function flush() {
+  if (!win || !rendererReady || pendingText === null) return
+  const text = pendingText
+  pendingText = null
+  positionAtCursor()
+  win.webContents.send('popover:show', { text })
+  win.show()
+  win.focus()
+}
+
+// Called (over IPC) when the popover renderer has mounted and attached listeners.
+export function markRendererReady() {
+  rendererReady = true
+  flush()
+}
+
 export function showOverlayAtCursor(text) {
-  const isNew = !win
-  if (isNew) create()
-  const send = () => {
-    positionAtCursor()
-    win.webContents.send('popover:show', { text })
-    win.show()
-    win.focus()
-  }
-  if (isNew) win.webContents.once('did-finish-load', send)
-  else send()
+  if (!win) create()
+  pendingText = text
+  flush() // sends now if the renderer is ready; otherwise markRendererReady() will
 }
 
 export function hideOverlay() {

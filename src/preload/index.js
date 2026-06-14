@@ -21,6 +21,7 @@ const api = {
     ipcRenderer.on('popover:show', h)
     return () => ipcRenderer.removeListener('popover:show', h)
   },
+  popoverReady: () => ipcRenderer.send('popover:ready'),
   popoverResize: (w, h) => ipcRenderer.send('popover:resize', w, h),
   popoverDismiss: () => ipcRenderer.send('popover:dismiss'),
   clipboardWrite: (text) => ipcRenderer.invoke('clipboard:write', text)
