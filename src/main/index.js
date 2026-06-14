@@ -70,7 +70,15 @@ app.whenReady().then(async () => {
   await seedFromEnv()
 
   // The renderer never touches the key or the network — only these channels.
-  ipcMain.handle('transform', (_event, payload) => transform(payload))
+  // transform returns a structured envelope so normalized error copy reaches the
+  // renderer intact (a thrown handler error gets wrapped by Electron's IPC layer).
+  ipcMain.handle('transform', async (_event, payload) => {
+    try {
+      return { ok: true, result: await transform(payload) }
+    } catch (e) {
+      return { ok: false, code: e?.code ?? null, message: e?.message || 'Something went wrong.' }
+    }
+  })
   ipcMain.handle('providers:list', () => listProviders())
   ipcMain.handle('key:has', (_event, provider) => hasApiKey(provider))
   ipcMain.handle('key:set', (_event, provider, key) => setApiKey(provider, key))

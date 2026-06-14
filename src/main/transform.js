@@ -16,6 +16,15 @@ const REWRITE_TITLES = {
   summarize: 'Summarize'
 }
 
+// Pull the first {...} object out of a model reply, tolerating code fences or
+// surrounding prose. Throws if there's no object to parse.
+function parseJsonObject(raw) {
+  const start = raw.indexOf('{')
+  const end = raw.lastIndexOf('}')
+  if (start === -1 || end <= start) throw new Error('no JSON object found')
+  return JSON.parse(raw.slice(start, end + 1))
+}
+
 // payload: { text, action: 'proofread'|'improve'|'simplify'|'summarize'|'tone',
 //            tone?, provider, model? }
 // returns: { kind: 'proofread'|'rewrite', title, text, changes? }
@@ -34,7 +43,7 @@ export async function transform({ text, action, tone, provider, model } = {}) {
         `Text:\n"""${input}"""`
     )
     try {
-      const parsed = JSON.parse(raw.replace(/^```json?|```$/g, '').trim())
+      const parsed = parseJsonObject(raw)
       return {
         kind: 'proofread',
         title: 'Proofread',

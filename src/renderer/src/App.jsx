@@ -102,6 +102,17 @@ export default function App() {
     }
   }
 
+  // Render a failed-transform envelope from main. NO_KEY reveals the key panel;
+  // everything else shows main's already-normalized message.
+  const showError = (env) => {
+    if (env?.code === 'NO_KEY') {
+      setHasKey(false)
+      setError(ERROR_NO_KEY)
+    } else {
+      setError(env?.message || ERROR_GENERIC)
+    }
+  }
+
   const run = useCallback(
     async (id, work) => {
       if (!text.trim() || busy || !provider) return
@@ -112,15 +123,10 @@ export default function App() {
       setCopied(false)
       try {
         await work()
-      } catch (e) {
-        const msg = e?.message || ''
-        if (/no api key/i.test(msg)) {
-          setHasKey(false)
-          setError(ERROR_NO_KEY)
-        } else {
-          // main normalizes provider errors into displayable messages
-          setError(msg || ERROR_GENERIC)
-        }
+      } catch {
+        // Only true IPC/unexpected failures land here — provider errors come
+        // back as a structured envelope, not a throw.
+        setError(ERROR_GENERIC)
       } finally {
         setBusy(null)
       }
@@ -131,14 +137,16 @@ export default function App() {
   const doAction = (a) =>
     run(a.id, async () => {
       const res = await window.api.transform({ text, action: a.id, provider, model: models[provider] })
-      setResult({ title: res.title, text: res.text })
-      if (res.kind === 'proofread') setMarks(res.changes || [])
+      if (!res?.ok) return showError(res)
+      setResult({ title: res.result.title, text: res.result.text })
+      if (res.result.kind === 'proofread') setMarks(res.result.changes || [])
     })
 
   const reTone = (t) =>
     run('tone-' + t, async () => {
       const res = await window.api.transform({ text, action: 'tone', tone: t, provider, model: models[provider] })
-      setResult({ title: res.title, text: res.text })
+      if (!res?.ok) return showError(res)
+      setResult({ title: res.result.title, text: res.result.text })
     })
 
   const apply = () => {
@@ -336,7 +344,15 @@ export default function App() {
           <div ref={wrapRef} style={{ position: 'relative' }}>
             <textarea
               value={text}
-              onChange={(e) => setText(e.target.value)}
+              onChange={(e) => {
+                setText(e.target.value)
+                // A result is tied to the text it was generated from; editing
+                // invalidates it so Replace can't clobber newer text.
+                if (result || marks) {
+                  setResult(null)
+                  setMarks(null)
+                }
+              }}
               placeholder="Write here…"
               style={{
                 width: '100%',
