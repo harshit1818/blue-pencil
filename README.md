@@ -69,17 +69,19 @@ A gitleaks pre-commit hook guards against committing secrets — enable it with
 `pip install pre-commit && pre-commit install`. Keys belong in the Keychain (via
 the picker) or a gitignored `.env`, never in tracked files.
 
-## Global hotkey (v0)
+## Global hotkey
 
-Press **⌘⇧'** to use Blue Pencil in any app without switching windows — no
-Accessibility permission required:
+Press **⌘⇧'** to use Blue Pencil in any app without switching windows.
 
-> copy text (⌘C) → press ⌘⇧' → a popover appears at the cursor → pick an action
-> → the result is copied to the clipboard → paste it back (⌘V).
+- **With macOS Accessibility granted:** select text → ⌘⇧' → it copies the
+  selection for you → pick an action → the result is pasted back into the app.
+- **Without it (default):** copy text (⌘C) → ⌘⇧' → pick an action → the result is
+  copied to your clipboard → paste it back (⌘V). An **Enable** link in the popover
+  turns on the auto path (grant Accessibility in System Settings, then restart).
 
-It uses whatever provider/key you've set in the app. A later version (v1) will
-auto-grab the selection and paste the result back for you, behind macOS
-Accessibility permission. See [`docs/phase2/`](./docs/phase2/) for the specs.
+Uses whatever provider/key you've set in the app. It doesn't yet overlay
+*fullscreen* apps — that's the menu-bar change tracked in
+[`docs/phase2/`](./docs/phase2/).
 
 ## Build a macOS app
 
