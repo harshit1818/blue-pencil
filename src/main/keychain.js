@@ -2,7 +2,7 @@ import keytar from 'keytar'
 
 // The API key lives only in the macOS Keychain — never in plaintext on disk,
 // never in the renderer.
-const SERVICE = 'WritingDesk'
+const SERVICE = 'BluePencil'
 const ACCOUNT = 'anthropic-api-key'
 
 export async function getApiKey() {

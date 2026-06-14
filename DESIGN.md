@@ -1,4 +1,4 @@
-# Writing Desk — Design Finalization
+# Blue Pencil — Design Finalization
 
 A personal macOS writing assistant. A single writing surface with a floating
 assistant that opens on click, anchored to the text box. Grammarly-style

@@ -1,4 +1,4 @@
-# Writing Desk
+# Blue Pencil
 
 A personal macOS writing assistant — a single writing surface with a floating
 assistant that opens on click, anchored to the text box. On-demand proofreading,
