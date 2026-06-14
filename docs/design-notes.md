@@ -1,7 +1,7 @@
 # Design Notes
 
 Companion to DESIGN.md. This is the *why* and the guardrails — read before
-changing anything visual. Tokens live in `tokens.js`; never hardcode values
+changing anything visual. Tokens live in `src/shared/tokens.js`; never hardcode values
 that exist there.
 
 ---
@@ -47,7 +47,7 @@ purely for the in-chat demo. **Do not reproduce the fake chrome in the real app.
 - Respect system appearance: read `nativeTheme.shouldUseDarkColors` and switch
   the `color.light` / `color.dark` token set. Listen for changes.
 - Window: sensible `minWidth`/`minHeight`, resizable, restore last size.
-- Use the system serif/grotesk/mono stacks in `tokens.js` — no webfont download.
+- Use the system serif/grotesk/mono stacks in `src/shared/tokens.js` — no webfont download.
 - Consider window vibrancy (`vibrancy: 'under-window'`) only if it doesn't muddy
   the paper surface; test before keeping it.
 
