@@ -12,20 +12,21 @@ real model calls made in the main process over IPC.
 ## Architecture
 
 ```
-renderer (React)         the prototype UI: surface + floating popover
-   │  IPC: "transform"({ text, action, tone }) → result
+renderer (React)         surface + floating popover + provider picker
+   │  IPC: "transform"({ text, action, tone, provider, model }) → result
    ▼
-main process             owns the API key; makes the model call
-   │  reads key from the macOS Keychain (never plaintext, never in renderer)
+main process             owns the API keys; makes the model call
+   │  reads the active provider's key from the macOS Keychain
    ▼
-provider adapter         the single seam — ask(prompt) → string
-                         default: Anthropic (claude-opus-4-8)
+provider registry        ask({ provider, model, prompt }) → string
+                         Anthropic (native SDK) · OpenAI · Groq · Gemini
+                         (the last three via the OpenAI-compatible API)
 ```
 
-- **`src/main/keychain.js`** — key stored in the macOS Keychain via `keytar`.
-- **`src/main/provider.js`** — the single seam. Swap providers here only.
+- **`src/main/keychain.js`** — one Keychain account per provider, all under the `BluePencil` service.
+- **`src/main/providers.js`** — the provider registry. Add a provider here; nothing else changes.
 - **`src/main/transform.js`** — provider-agnostic prompt construction.
-- **`src/main/index.js`** — window + IPC handlers (`transform`, `key:has`, `key:set`).
+- **`src/main/index.js`** — window + IPC handlers (`transform`, `providers:list`, `key:has`, `key:set`).
 - **`src/preload/index.js`** — the only renderer↔main bridge (`window.api`).
 - **`src/renderer/`** — React UI adapted from `writing-desk-floating.jsx`.
 
@@ -39,11 +40,15 @@ npm install        # native deps (keytar) are rebuilt for Electron via postinsta
 npm run dev        # launches the app with hot reload
 ```
 
-Provide your key either by pasting it into the in-app banner on first launch, or
-by setting `ANTHROPIC_API_KEY` (see `.env.example`) — it's moved into the
-Keychain on first run and never written to disk.
+Pick a provider from the dropdown in the top bar, then paste that provider's key
+into the panel (toggled by the key button). Keys go straight into the Keychain.
+You can also seed keys from the environment on first run —
+`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GROQ_API_KEY`, `GEMINI_API_KEY` (see
+`.env.example`); they're moved into the Keychain and never written to disk.
 
-To change the model or provider, edit `src/main/provider.js` only.
+Default model ids per provider live in `src/main/providers.js` and are
+overridable from the picker — confirm the current ids for OpenAI/Groq/Gemini,
+since those move fast. To add a provider, add one entry to that file.
 
 ## Build a macOS app
 

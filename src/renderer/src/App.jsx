@@ -14,7 +14,7 @@ const ACTIONS = [
 const TONES = ['Professional', 'Confident', 'Friendly', 'Concise']
 
 const ERROR_GENERIC = 'Couldn’t reach the model. Check your key and try again.'
-const ERROR_NO_KEY = 'Add your Anthropic API key above to get started.'
+const ERROR_NO_KEY = 'Add the key above to get started.'
 
 // Track macOS system appearance — Electron mirrors it to prefers-color-scheme.
 function useThemeColors() {
@@ -35,6 +35,9 @@ export default function App() {
   const [text, setText] = useState(
     'i thinks the new featrue is realy usefull but the way its implemented have some issue that we should to discuss before shiping it.'
   )
+  const [providers, setProviders] = useState([])
+  const [provider, setProvider] = useState('')
+  const [models, setModels] = useState({})
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(null)
   const [error, setError] = useState(null)
@@ -42,20 +45,57 @@ export default function App() {
   const [marks, setMarks] = useState(null)
   const [copied, setCopied] = useState(false)
   const [hasKey, setHasKey] = useState(true)
+  const [showKeys, setShowKeys] = useState(false)
   const [keyDraft, setKeyDraft] = useState('')
   const wrapRef = useRef(null)
 
   const words = text.trim() ? text.trim().split(/\s+/).length : 0
+  const providerLabel = providers.find((p) => p.id === provider)?.label || provider
 
+  // Load the provider registry once; restore the last choice + per-provider models.
   useEffect(() => {
-    window.api?.hasKey().then(setHasKey).catch(() => setHasKey(false))
+    let live = true
+    window.api
+      ?.listProviders()
+      .then((list) => {
+        if (!live || !list?.length) return
+        setProviders(list)
+        setModels((prev) => {
+          const next = { ...prev }
+          for (const p of list) next[p.id] = localStorage.getItem('bp.model.' + p.id) || p.defaultModel
+          return next
+        })
+        const saved = localStorage.getItem('bp.provider')
+        setProvider(list.some((p) => p.id === saved) ? saved : list[0].id)
+      })
+      .catch(() => {})
+    return () => {
+      live = false
+    }
   }, [])
+
+  // On provider change: persist, re-check its key, clear transient UI.
+  useEffect(() => {
+    if (!provider) return
+    localStorage.setItem('bp.provider', provider)
+    window.api?.hasKey(provider).then(setHasKey).catch(() => setHasKey(false))
+    setResult(null)
+    setMarks(null)
+    setError(null)
+    setKeyDraft('')
+  }, [provider])
+
+  const setModel = (id, value) => {
+    setModels((m) => ({ ...m, [id]: value }))
+    localStorage.setItem('bp.model.' + id, value)
+  }
 
   const saveKey = async () => {
     try {
-      await window.api.setKey(keyDraft)
+      await window.api.setKey(provider, keyDraft)
       setKeyDraft('')
       setHasKey(true)
+      setShowKeys(false)
       setError(null)
     } catch {
       setError('That key didn’t save. Check it and try again.')
@@ -64,7 +104,7 @@ export default function App() {
 
   const run = useCallback(
     async (id, work) => {
-      if (!text.trim() || busy) return
+      if (!text.trim() || busy || !provider) return
       setBusy(id)
       setError(null)
       setResult(null)
@@ -73,8 +113,7 @@ export default function App() {
       try {
         await work()
       } catch (e) {
-        const msg = e?.message || ''
-        if (/no api key/i.test(msg)) {
+        if (/no api key/i.test(e?.message || '')) {
           setHasKey(false)
           setError(ERROR_NO_KEY)
         } else {
@@ -84,19 +123,19 @@ export default function App() {
         setBusy(null)
       }
     },
-    [text, busy]
+    [text, busy, provider]
   )
 
   const doAction = (a) =>
     run(a.id, async () => {
-      const res = await window.api.transform({ text, action: a.id })
+      const res = await window.api.transform({ text, action: a.id, provider, model: models[provider] })
       setResult({ title: res.title, text: res.text })
       if (res.kind === 'proofread') setMarks(res.changes || [])
     })
 
   const reTone = (t) =>
     run('tone-' + t, async () => {
-      const res = await window.api.transform({ text, action: 'tone', tone: t })
+      const res = await window.api.transform({ text, action: 'tone', tone: t, provider, model: models[provider] })
       setResult({ title: res.title, text: res.text })
     })
 
@@ -156,6 +195,17 @@ export default function App() {
     color: C.muted
   }
 
+  const fieldStyle = {
+    flex: 1,
+    font: `400 12.5px ${font.mono}`,
+    padding: '6px 9px',
+    borderRadius: radius.sm,
+    border: `1px solid ${C.line}`,
+    background: C.panel,
+    color: C.ink,
+    minWidth: 0
+  }
+
   return (
     <div
       style={{
@@ -172,8 +222,8 @@ export default function App() {
         @keyframes pop{ from{ opacity:0; transform:scale(.94) translateY(6px);} to{ opacity:1; transform:none;} }
         .badge:hover{ transform:scale(1.06); }
         .act:hover{ border-color:${C.pencil}; color:${C.pencil}; }
-        textarea:focus, input:focus{ outline:none; }
-        .badge:focus-visible, .act:focus-visible, textarea:focus-visible, input:focus-visible{
+        textarea:focus, input:focus, select:focus{ outline:none; }
+        .badge:focus-visible, .act:focus-visible, textarea:focus-visible, input:focus-visible, select:focus-visible{
           outline:2px solid ${C.pencil}; outline-offset:2px;
         }
         @media(prefers-reduced-motion:reduce){ *{animation:none!important;transition:none!important;} }
@@ -186,10 +236,40 @@ export default function App() {
           flexShrink: 0,
           display: 'flex',
           alignItems: 'center',
+          gap: space.sm,
           padding: `0 ${space.md}px 0 78px`,
           WebkitAppRegion: 'drag'
         }}
       >
+        <select
+          value={provider}
+          onChange={(e) => setProvider(e.target.value)}
+          aria-label="Provider"
+          style={{
+            WebkitAppRegion: 'no-drag',
+            font: `500 11.5px ${font.grotesk}`,
+            color: C.ink,
+            background: C.panel,
+            border: `1px solid ${C.line}`,
+            borderRadius: radius.sm,
+            padding: '3px 6px',
+            cursor: 'pointer'
+          }}
+        >
+          {providers.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.label}
+            </option>
+          ))}
+        </select>
+        <button
+          className="act"
+          onClick={() => setShowKeys((s) => !s)}
+          aria-label="API keys and model"
+          style={{ ...pill(showKeys), WebkitAppRegion: 'no-drag', padding: '5px 7px' }}
+        >
+          <KeyRound size={13} />
+        </button>
         <span style={{ marginLeft: 'auto', font: `400 11px ${font.mono}`, color: C.muted }}>
           {words} words
         </span>
@@ -206,40 +286,48 @@ export default function App() {
         }}
       >
         <div style={{ width: '100%', maxWidth: 680 }}>
-          {/* key banner — only when the Keychain has no key yet (Phase 2: full settings) */}
-          {!hasKey && (
+          {/* keys + model panel — auto-shows when the active provider has no key */}
+          {provider && (!hasKey || showKeys) && (
             <div
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: space.sm,
-                padding: `10px 12px`,
                 marginBottom: space.md,
+                padding: 12,
                 background: C.pencilSoft,
                 border: `1px solid ${C.line}`,
-                borderRadius: radius.md
+                borderRadius: radius.md,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: space.sm
               }}
             >
-              <KeyRound size={15} color={C.pencil} />
-              <input
-                type="password"
-                value={keyDraft}
-                onChange={(e) => setKeyDraft(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && saveKey()}
-                placeholder="Paste your Anthropic API key…"
-                style={{
-                  flex: 1,
-                  font: `400 12.5px ${font.mono}`,
-                  padding: '6px 9px',
-                  borderRadius: radius.sm,
-                  border: `1px solid ${C.line}`,
-                  background: C.panel,
-                  color: C.ink
-                }}
-              />
-              <button style={pill(false, true)} onClick={saveKey} disabled={!keyDraft.trim()}>
-                Save to Keychain
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: space.sm }}>
+                <KeyRound size={15} color={C.pencil} />
+                <input
+                  type="password"
+                  value={keyDraft}
+                  onChange={(e) => setKeyDraft(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && saveKey()}
+                  placeholder={hasKey ? `Replace ${providerLabel} key…` : `${providerLabel} API key…`}
+                  style={fieldStyle}
+                />
+                <button style={pill(false, true)} onClick={saveKey} disabled={!keyDraft.trim()}>
+                  Save to Keychain
+                </button>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: space.sm }}>
+                <span style={{ ...sectionLabel, whiteSpace: 'nowrap' }}>Model</span>
+                <input
+                  value={models[provider] || ''}
+                  onChange={(e) => setModel(provider, e.target.value)}
+                  placeholder="model id"
+                  style={fieldStyle}
+                />
+                {hasKey && (
+                  <span style={{ font: `400 11px ${font.mono}`, color: C.muted, whiteSpace: 'nowrap' }}>
+                    key saved
+                  </span>
+                )}
+              </div>
             </div>
           )}
 
@@ -316,7 +404,7 @@ export default function App() {
                     letterSpacing: '.06em'
                   }}
                 >
-                  Assistant
+                  Assistant · {providerLabel}
                 </div>
 
                 <div style={{ padding: space.md }}>

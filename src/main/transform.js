@@ -1,7 +1,8 @@
-import { ask } from './provider.js'
+import { ask } from './providers.js'
 
-// Prompt construction lives here, between the IPC handler and the provider seam.
-// The renderer only sends a semantic action — never prompt text.
+// Prompt construction lives here, between the IPC handler and the provider
+// registry. The renderer only sends a semantic action + the chosen provider/
+// model — never prompt text.
 
 const REWRITE_INSTRUCTIONS = {
   improve: 'Revise to improve clarity, flow and word choice while preserving meaning and voice.',
@@ -15,14 +16,17 @@ const REWRITE_TITLES = {
   summarize: 'Summarize'
 }
 
-// payload: { text: string, action: 'proofread'|'improve'|'simplify'|'summarize'|'tone', tone?: string }
-// returns: { kind: 'proofread'|'rewrite', title: string, text: string, changes?: [...] }
-export async function transform({ text, action, tone } = {}) {
+// payload: { text, action: 'proofread'|'improve'|'simplify'|'summarize'|'tone',
+//            tone?, provider, model? }
+// returns: { kind: 'proofread'|'rewrite', title, text, changes? }
+export async function transform({ text, action, tone, provider, model } = {}) {
   const input = (text || '').trim()
   if (!input) throw new Error('Nothing to transform.')
 
+  const call = (prompt) => ask({ provider, model, prompt })
+
   if (action === 'proofread') {
-    const raw = await ask(
+    const raw = await call(
       'You are a copy editor. Correct spelling, grammar and punctuation in the text below. ' +
         'Respond ONLY with minified JSON shaped ' +
         '{"corrected":string,"changes":[{"before":string,"after":string,"reason":string}]}. ' +
@@ -38,7 +42,6 @@ export async function transform({ text, action, tone } = {}) {
         changes: Array.isArray(parsed.changes) ? parsed.changes : []
       }
     } catch {
-      // Model didn't return clean JSON — fall back to showing the raw text.
       return { kind: 'rewrite', title: 'Proofread', text: raw }
     }
   }
@@ -46,7 +49,7 @@ export async function transform({ text, action, tone } = {}) {
   if (action === 'tone') {
     const t = (tone || '').trim()
     if (!t) throw new Error('No tone specified.')
-    const out = await ask(
+    const out = await call(
       `Rewrite the text in a ${t.toLowerCase()} tone, preserving meaning. ` +
         `Return ONLY the rewritten text.\n\nText:\n"""${input}"""`
     )
@@ -55,7 +58,7 @@ export async function transform({ text, action, tone } = {}) {
 
   const instruction = REWRITE_INSTRUCTIONS[action]
   if (!instruction) throw new Error(`Unknown action: ${action}`)
-  const out = await ask(
+  const out = await call(
     `${instruction}\n\nReturn ONLY the resulting text, no preamble.\n\nText:\n"""${input}"""`
   )
   return { kind: 'rewrite', title: REWRITE_TITLES[action], text: out }

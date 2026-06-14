@@ -16,7 +16,8 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.69.0",
     "keytar": "^7.9.0",
-    "lucide-react": "^0.460.0"
+    "lucide-react": "^0.460.0",
+    "openai": "^4.77.0"
   },
   "devDependencies": {
     "@electron/rebuild": "^3.7.0",

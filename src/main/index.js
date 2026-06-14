@@ -3,6 +3,7 @@ import { join } from 'path'
 import { readFileSync, writeFileSync } from 'fs'
 import { color } from '@tokens'
 import { transform } from './transform.js'
+import { listProviders } from './providers.js'
 import { hasApiKey, setApiKey, seedFromEnv } from './keychain.js'
 
 const paperFor = (win) =>
@@ -70,8 +71,9 @@ app.whenReady().then(async () => {
 
   // The renderer never touches the key or the network — only these channels.
   ipcMain.handle('transform', (_event, payload) => transform(payload))
-  ipcMain.handle('key:has', () => hasApiKey())
-  ipcMain.handle('key:set', (_event, key) => setApiKey(key))
+  ipcMain.handle('providers:list', () => listProviders())
+  ipcMain.handle('key:has', (_event, provider) => hasApiKey(provider))
+  ipcMain.handle('key:set', (_event, provider, key) => setApiKey(provider, key))
 
   const win = createWindow()
 
