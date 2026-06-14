@@ -56,6 +56,26 @@ function noKey(provider) {
   return err
 }
 
+// Turn raw SDK errors into messages the renderer can show verbatim
+// (design-notes: errors state what happened and how to fix it). Both the
+// Anthropic and OpenAI SDKs expose .status on their error objects.
+function normalizeError(e, label, model) {
+  const status = e?.status
+  if (status === 401 || status === 403) {
+    return new Error(`${label} rejected the key. Check it and try again.`)
+  }
+  if (status === 429) {
+    return new Error(`${label} is rate-limiting — you’ve hit its quota or rate limit. Wait a moment, switch provider, or check your plan.`)
+  }
+  if (status === 404) {
+    return new Error(`${label} didn’t recognise the model “${model}”. Check the model id.`)
+  }
+  if (typeof status === 'number' && status >= 500) {
+    return new Error(`${label} had a server error. Try again shortly.`)
+  }
+  return e instanceof Error ? e : new Error(String(e))
+}
+
 async function askAnthropic({ apiKey, model, prompt }) {
   const client = new Anthropic({ apiKey })
   const message = await client.messages.create({
@@ -94,8 +114,12 @@ export async function ask({ provider, model, prompt }) {
   if (!apiKey) throw noKey(provider)
 
   const useModel = (model && model.trim()) || cfg.defaultModel
-  if (cfg.kind === 'anthropic') {
-    return askAnthropic({ apiKey, model: useModel, prompt })
+  try {
+    if (cfg.kind === 'anthropic') {
+      return await askAnthropic({ apiKey, model: useModel, prompt })
+    }
+    return await askOpenAICompat({ apiKey, model: useModel, prompt, baseURL: cfg.baseURL })
+  } catch (e) {
+    throw normalizeError(e, cfg.label, useModel)
   }
-  return askOpenAICompat({ apiKey, model: useModel, prompt, baseURL: cfg.baseURL })
 }

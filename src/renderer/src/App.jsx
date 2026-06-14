@@ -113,11 +113,13 @@ export default function App() {
       try {
         await work()
       } catch (e) {
-        if (/no api key/i.test(e?.message || '')) {
+        const msg = e?.message || ''
+        if (/no api key/i.test(msg)) {
           setHasKey(false)
           setError(ERROR_NO_KEY)
         } else {
-          setError(ERROR_GENERIC)
+          // main normalizes provider errors into displayable messages
+          setError(msg || ERROR_GENERIC)
         }
       } finally {
         setBusy(null)
