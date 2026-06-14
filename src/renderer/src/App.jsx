@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
-import { Check, Copy, Loader2, PenLine, X, AlertCircle, CornerDownLeft, KeyRound } from 'lucide-react'
+import { PenLine, X, CornerDownLeft, KeyRound } from 'lucide-react'
 import { color, font, radius, shadow, space } from '@tokens'
+import ActionPanel from './ActionPanel.jsx'
 
 // All visual values come from src/shared/tokens.js — nothing is hardcoded here.
 
@@ -153,9 +154,9 @@ export default function App() {
     [text, busy, provider]
   )
 
-  const doAction = (a) =>
-    run(a.id, async () => {
-      const res = await window.api.transform({ text, action: a.id })
+  const doAction = (id) =>
+    run(id, async () => {
+      const res = await window.api.transform({ text, action: id })
       if (!res?.ok) return showError(res)
       setResult({ title: res.result.title, text: res.result.text })
       if (res.result.kind === 'proofread') setMarks(res.result.changes || [])
@@ -431,163 +432,20 @@ export default function App() {
                   zIndex: 5
                 }}
               >
-                <div
-                  style={{
-                    padding: '11px 14px',
-                    borderBottom: `1px solid ${C.line}`,
-                    background: C.paper,
-                    ...sectionLabel,
-                    fontSize: 11,
-                    letterSpacing: '.06em'
-                  }}
-                >
-                  Assistant · {providerLabel}
-                </div>
-
-                <div style={{ padding: space.md }}>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-                    {ACTIONS.map((a) => (
-                      <button
-                        key={a.id}
-                        className="act"
-                        style={pill(false, a.id === 'proofread')}
-                        onClick={() => doAction(a)}
-                        disabled={!!busy}
-                      >
-                        {busy === a.id ? <Loader2 size={13} /> : a.id === 'proofread' ? <Check size={13} /> : null}
-                        {a.label}
-                      </button>
-                    ))}
-                  </div>
-                  <div style={{ ...sectionLabel, margin: '13px 0 7px' }}>Tone</div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-                    {TONES.map((t) => (
-                      <button
-                        key={t}
-                        className="act"
-                        style={pill(false)}
-                        onClick={() => reTone(t)}
-                        disabled={!!busy}
-                      >
-                        {busy === 'tone-' + t ? <Loader2 size={13} /> : null}
-                        {t}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {(error || result) && (
-                  <div style={{ borderTop: `1px solid ${C.line}`, maxHeight: 280, overflowY: 'auto' }}>
-                    {error && (
-                      <div
-                        style={{
-                          display: 'flex',
-                          gap: 7,
-                          alignItems: 'center',
-                          padding: 13,
-                          color: C.mark,
-                          font: `500 13px ${font.grotesk}`
-                        }}
-                      >
-                        <AlertCircle size={15} /> {error}
-                      </div>
-                    )}
-                    {result && (
-                      <div>
-                        <div
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            padding: '9px 14px',
-                            background: C.paper,
-                            borderBottom: `1px solid ${C.line}`
-                          }}
-                        >
-                          <span
-                            style={{
-                              font: `600 11px ${font.mono}`,
-                              letterSpacing: '.05em',
-                              textTransform: 'uppercase',
-                              color: C.pencil
-                            }}
-                          >
-                            {result.title}
-                          </span>
-                          <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
-                            <button className="act" style={pill(false)} onClick={copy} aria-label="Copy result">
-                              {copied ? <Check size={13} /> : <Copy size={13} />}
-                            </button>
-                            <button style={pill(false, true)} onClick={apply}>
-                              <CornerDownLeft size={13} /> Replace
-                            </button>
-                          </div>
-                        </div>
-                        <p
-                          style={{
-                            margin: 0,
-                            padding: 14,
-                            font: `400 14.5px/1.65 ${font.serif}`,
-                            whiteSpace: 'pre-wrap',
-                            color: C.ink
-                          }}
-                        >
-                          {result.text}
-                        </p>
-                        {marks && marks.length > 0 && (
-                          <div style={{ borderTop: `1px solid ${C.line}`, padding: '10px 14px 14px' }}>
-                            <div style={{ ...sectionLabel, marginBottom: 7 }}>
-                              {marks.length} fix{marks.length > 1 ? 'es' : ''}
-                            </div>
-                            {marks.map((m, i) => (
-                              <div
-                                key={i}
-                                style={{
-                                  display: 'flex',
-                                  flexWrap: 'wrap',
-                                  gap: 6,
-                                  alignItems: 'baseline',
-                                  padding: '5px 0',
-                                  borderTop: i ? `1px dashed ${C.line}` : 'none',
-                                  font: `400 12px ${font.grotesk}`
-                                }}
-                              >
-                                <span
-                                  style={{
-                                    textDecoration: 'line-through',
-                                    color: C.mark,
-                                    background: C.markSoft,
-                                    padding: '0 5px',
-                                    borderRadius: 4
-                                  }}
-                                >
-                                  {m.before}
-                                </span>
-                                <span style={{ color: C.muted }}>→</span>
-                                <span
-                                  style={{
-                                    color: C.pencil,
-                                    background: C.pencilSoft,
-                                    padding: '0 5px',
-                                    borderRadius: 4,
-                                    fontWeight: 600
-                                  }}
-                                >
-                                  {m.after}
-                                </span>
-                                {m.reason && <span style={{ color: C.muted }}>({m.reason})</span>}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                        {marks && marks.length === 0 && (
-                          <div style={{ padding: '10px 14px', font: `400 12px ${font.grotesk}`, color: C.muted }}>
-                            Clean — nothing to fix.
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
+                <ActionPanel
+                  providerLabel={providerLabel}
+                  actions={ACTIONS}
+                  tones={TONES}
+                  busy={busy}
+                  error={error}
+                  result={result}
+                  marks={marks}
+                  copied={copied}
+                  onAction={doAction}
+                  onTone={reTone}
+                  onCopy={copy}
+                  primary={{ label: 'Replace', icon: <CornerDownLeft size={13} />, onClick: apply }}
+                />
               </div>
             )}
           </div>
