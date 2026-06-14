@@ -55,6 +55,11 @@ npm install        # native deps (keytar) are rebuilt for Electron via postinsta
 npm run dev        # launches the app with hot reload
 ```
 
+Blue Pencil is a **menu-bar app**: on launch it shows a **✎** in the menu bar and
+**no window** (except first run, when no key is stored yet — then it opens for key
+entry). Open the writing window from the tray menu or with the hotkey; closing the
+window hides it (Quit is in the tray).
+
 Pick a provider from the dropdown in the top bar, then paste that provider's key
 into the panel (toggled by the key button). Keys go straight into the Keychain.
 You can also seed keys from the environment on first run —
@@ -79,9 +84,9 @@ Press **⌘⇧'** to use Blue Pencil in any app without switching windows.
   copied to your clipboard → paste it back (⌘V). An **Enable** link in the popover
   turns on the auto path (grant Accessibility in System Settings, then restart).
 
-Uses whatever provider/key you've set in the app. It doesn't yet overlay
-*fullscreen* apps — that's the menu-bar change tracked in
-[`docs/phase2/`](./docs/phase2/).
+Uses whatever provider/key you've set in the app. As a menu-bar (accessory) app it
+floats over other apps **including fullscreen** ones. See [`docs/phase2/`](./docs/phase2/)
+for the specs.
 
 ## Build a macOS app
 
