@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell, nativeTheme, clipboard } from 'electron'
+import { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, shell, nativeTheme, clipboard } from 'electron'
 import { join } from 'path'
 import { readFileSync, writeFileSync } from 'fs'
 import { color } from '@tokens'
@@ -10,8 +10,11 @@ import { registerHotkey, unregisterHotkey } from './hotkey.js'
 import { resizeOverlay, hideOverlay, markRendererReady } from './overlay.js'
 import { pasteBack, requestAccessibility, openAccessibilitySettings, relaunchApp } from './automation.js'
 
-// After any settings write, push the effective snapshot to every window so they
-// stay in sync. A no-op echo with one window today; the overlay just subscribes.
+const HOTKEY_LABEL = "⌘⇧'"
+
+let mainWindow = null
+let tray = null
+
 function broadcastSettings() {
   const snapshot = effectiveSettings()
   for (const w of BrowserWindow.getAllWindows()) {
@@ -19,8 +22,7 @@ function broadcastSettings() {
   }
 }
 
-const paperFor = (win) =>
-  nativeTheme.shouldUseDarkColors ? color.dark.paper : color.light.paper
+const paperFor = () => (nativeTheme.shouldUseDarkColors ? color.dark.paper : color.light.paper)
 
 function boundsFile() {
   return join(app.getPath('userData'), 'window-bounds.json')
@@ -42,7 +44,7 @@ function saveBounds(win) {
 
 function createWindow() {
   const saved = loadBounds()
-  const win = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: saved?.width ?? 820,
     height: saved?.height ?? 660,
     x: saved?.x,
@@ -50,7 +52,6 @@ function createWindow() {
     minWidth: 560,
     minHeight: 480,
     show: false,
-    // Native inset traffic-light controls — no painted chrome.
     titleBarStyle: 'hiddenInset',
     backgroundColor: paperFor(),
     webPreferences: {
@@ -61,30 +62,69 @@ function createWindow() {
     }
   })
 
-  win.on('ready-to-show', () => win.show())
-  win.on('close', () => saveBounds(win))
+  // Menu-bar app: closing the window hides it (Quit lives in the tray). Save
+  // bounds first so we capture size/position before hiding.
+  mainWindow.on('close', (e) => {
+    saveBounds(mainWindow)
+    if (!app.isQuitting) {
+      e.preventDefault()
+      mainWindow.hide()
+    }
+  })
 
-  // Open external links in the system browser, never in-app.
-  win.webContents.setWindowOpenHandler(({ url }) => {
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url)
     return { action: 'deny' }
   })
 
   if (process.env.ELECTRON_RENDERER_URL) {
-    win.loadURL(process.env.ELECTRON_RENDERER_URL)
+    mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL)
   } else {
-    win.loadFile(join(__dirname, '../renderer/index.html'))
+    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
 
-  return win
+  return mainWindow
+}
+
+function showMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) createWindow()
+  mainWindow.show()
+  // An accessory app must be brought to the foreground for its window to take
+  // keyboard focus (so the textarea is typable).
+  if (process.platform === 'darwin') app.focus({ steal: true })
+  mainWindow.focus()
+}
+
+function createTray() {
+  // Text-glyph menu-bar item (a designed template PNG is a later polish).
+  tray = new Tray(nativeImage.createEmpty())
+  tray.setToolTip('Blue Pencil')
+  tray.setTitle('✎')
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      { label: 'Open Blue Pencil', click: showMainWindow },
+      { label: `Shortcut: ${HOTKEY_LABEL}`, enabled: false },
+      { type: 'separator' },
+      {
+        label: 'Quit Blue Pencil',
+        click: () => {
+          app.isQuitting = true
+          app.quit()
+        }
+      }
+    ])
+  )
 }
 
 app.whenReady().then(async () => {
+  app.isQuitting = false
+  // Accessory (menu-bar) app: no Dock icon, owns no Space — so the hotkey overlay
+  // floats over fullscreen apps without a Space switch. LSUIElement handles the
+  // packaged build; this covers dev.
+  if (process.platform === 'darwin') app.dock?.hide()
+
   await seedFromEnv()
 
-  // The renderer never touches the key or the network — only these channels.
-  // transform returns a structured envelope so normalized error copy reaches the
-  // renderer intact (a thrown handler error gets wrapped by Electron's IPC layer).
   ipcMain.handle('transform', async (_event, payload) => {
     try {
       return { ok: true, result: await transform(payload) }
@@ -128,20 +168,19 @@ app.whenReady().then(async () => {
   ipcMain.on('accessibility:relaunch', () => relaunchApp())
 
   registerHotkey()
+  createTray()
+  createWindow() // created hidden; summoned via the tray or by being needed
 
-  const win = createWindow()
+  nativeTheme.on('updated', () => mainWindow?.setBackgroundColor(paperFor()))
 
-  // Keep the native window background in step with system appearance so theme
-  // changes don't flash the wrong paper colour. The renderer tracks the same
-  // change via prefers-color-scheme.
-  nativeTheme.on('updated', () => win.setBackgroundColor(paperFor()))
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
-  })
+  // First run (no key for any provider) → open the window so key entry works.
+  const anyKey = (await Promise.all(listProviders().map((p) => hasApiKey(p.id)))).some(Boolean)
+  if (!anyKey) showMainWindow()
 })
 
 app.on('window-all-closed', () => {
+  // Menu-bar app: stay resident when the window closes. (A non-mac build would
+  // quit, but this is a macOS tool.)
   if (process.platform !== 'darwin') app.quit()
 })
 

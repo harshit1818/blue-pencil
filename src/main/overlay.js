@@ -31,6 +31,7 @@ function create() {
       sandbox: false
     }
   })
+  win.setAlwaysOnTop(true, 'screen-saver') // sit above fullscreen content
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
   win.on('blur', hideOverlay) // clicking into another app dismisses
   win.on('closed', () => {
