@@ -5,7 +5,7 @@ assistant that opens on click, anchored to the text box. On-demand proofreading,
 rewriting, tone adjustment, and summarization, powered by an LLM you supply the
 key for.
 
-This is the **Phase 1** scaffold per [`DESIGN.md`](./DESIGN.md): an Electron shell
+This is the **Phase 1** scaffold per [`DESIGN.md`](./docs/DESIGN.md): an Electron shell
 wrapping the renderer prototype, with the API key held in the macOS Keychain and
 real model calls made in the main process over IPC.
 
@@ -13,10 +13,10 @@ real model calls made in the main process over IPC.
 
 ```
 renderer (React)         surface + floating popover + provider picker
-   │  IPC: "transform"({ text, action, tone, provider, model }) → result
+   │  IPC: "transform"({ text, action, tone }) → result
    ▼
-main process             owns the API keys; makes the model call
-   │  reads the active provider's key from the macOS Keychain
+main process             resolves the active provider/model from settings,
+   │                     reads that provider's key from the macOS Keychain
    ▼
 provider registry        ask({ provider, model, prompt }) → string
                          Anthropic (native SDK) · OpenAI · Groq · Gemini
@@ -24,14 +24,29 @@ provider registry        ask({ provider, model, prompt }) → string
 ```
 
 - **`src/main/keychain.js`** — one Keychain account per provider, all under the `BluePencil` service.
-- **`src/main/providers.js`** — the provider registry. Add a provider here; nothing else changes.
-- **`src/main/transform.js`** — provider-agnostic prompt construction.
-- **`src/main/index.js`** — window + IPC handlers (`transform`, `providers:list`, `key:has`, `key:set`).
+- **`src/main/providers.js`** — the provider registry + active-selection resolvers. Add a provider here; nothing else changes.
+- **`src/main/settings.js`** — non-secret selection store (active provider + per-provider model) under `userData`.
+- **`src/main/transform.js`** — prompt construction; resolves the active provider/model itself.
+- **`src/main/index.js`** — window + IPC handlers (`transform`, `providers:list`, `key:*`, `settings:*`).
 - **`src/preload/index.js`** — the only renderer↔main bridge (`window.api`).
-- **`src/renderer/`** — React UI adapted from `writing-desk-floating.jsx`.
+- **`src/shared/tokens.js`** — design tokens shared by main and renderer.
+- **`src/renderer/`** — React UI adapted from `prototypes/writing-desk-floating.jsx`.
 
-The renderer never sees the key, the provider, or the network — it sends a
+The renderer never sees the key, the provider client, or the network — it sends a
 semantic action over IPC and renders the result.
+
+## Layout
+
+```
+docs/            DESIGN.md, design-notes.md, phase2/ specs
+prototypes/      original web + floating UI prototypes (reference only)
+build/           macOS entitlements
+src/
+  shared/        tokens.js — design tokens (main + renderer)
+  main/          Electron main: window, IPC, providers, settings, keychain
+  preload/       contextBridge → window.api
+  renderer/      React UI (index.html + src/)
+```
 
 ## Develop
 
