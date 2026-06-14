@@ -1,0 +1,9 @@
+# Secret scanning before every commit. Enable once with:
+#   pip install pre-commit && pre-commit install
+# Then gitleaks runs automatically on staged changes and blocks the commit if it
+# finds an API key, token, or other secret.
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks
