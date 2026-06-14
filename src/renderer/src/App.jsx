@@ -52,32 +52,49 @@ export default function App() {
   const words = text.trim() ? text.trim().split(/\s+/).length : 0
   const providerLabel = providers.find((p) => p.id === provider)?.label || provider
 
-  // Load the provider registry once; restore the last choice + per-provider models.
+  // Selection lives in main (so the future overlay window shares it). Seed from
+  // there and stay subscribed to cross-window changes — one source of truth.
+  const applySettings = (s) => {
+    if (!s) return
+    setProvider(s.provider || '')
+    setModels(s.models || {})
+  }
+
   useEffect(() => {
     let live = true
-    window.api
-      ?.listProviders()
-      .then((list) => {
-        if (!live || !list?.length) return
-        setProviders(list)
-        setModels((prev) => {
-          const next = { ...prev }
-          for (const p of list) next[p.id] = localStorage.getItem('bp.model.' + p.id) || p.defaultModel
-          return next
-        })
-        const saved = localStorage.getItem('bp.provider')
-        setProvider(list.some((p) => p.id === saved) ? saved : list[0].id)
+    const unsub = window.api?.onSettingsChanged?.((s) => {
+      if (live) applySettings(s)
+    })
+    Promise.all([
+      window.api?.listProviders?.() ?? [],
+      window.api?.getSettings?.() ?? { provider: '', models: {} }
+    ])
+      .then(([list, settings]) => {
+        if (!live) return
+        if (list?.length) setProviders(list)
+        applySettings(settings)
+        // One-time migration: lift the old localStorage selection into main, then drop it.
+        const oldProvider = localStorage.getItem('bp.provider')
+        if (oldProvider) {
+          if ((list || []).some((p) => p.id === oldProvider)) window.api?.setProvider(oldProvider)
+          for (const p of list || []) {
+            const m = localStorage.getItem('bp.model.' + p.id)
+            if (m) window.api?.setModel(p.id, m)
+            localStorage.removeItem('bp.model.' + p.id)
+          }
+          localStorage.removeItem('bp.provider')
+        }
       })
       .catch(() => {})
     return () => {
       live = false
+      if (unsub) unsub()
     }
   }, [])
 
-  // On provider change: persist, re-check its key, clear transient UI.
+  // On provider change: re-check its key, clear transient UI.
   useEffect(() => {
     if (!provider) return
-    localStorage.setItem('bp.provider', provider)
     window.api?.hasKey(provider).then(setHasKey).catch(() => setHasKey(false))
     setResult(null)
     setMarks(null)
@@ -85,9 +102,11 @@ export default function App() {
     setKeyDraft('')
   }, [provider])
 
+  // Model edits keep the controlled input responsive (local) and write through
+  // to main; the broadcast echo confirms.
   const setModel = (id, value) => {
     setModels((m) => ({ ...m, [id]: value }))
-    localStorage.setItem('bp.model.' + id, value)
+    window.api?.setModel(id, value)
   }
 
   const saveKey = async () => {
@@ -136,7 +155,7 @@ export default function App() {
 
   const doAction = (a) =>
     run(a.id, async () => {
-      const res = await window.api.transform({ text, action: a.id, provider, model: models[provider] })
+      const res = await window.api.transform({ text, action: a.id })
       if (!res?.ok) return showError(res)
       setResult({ title: res.result.title, text: res.result.text })
       if (res.result.kind === 'proofread') setMarks(res.result.changes || [])
@@ -144,7 +163,7 @@ export default function App() {
 
   const reTone = (t) =>
     run('tone-' + t, async () => {
-      const res = await window.api.transform({ text, action: 'tone', tone: t, provider, model: models[provider] })
+      const res = await window.api.transform({ text, action: 'tone', tone: t })
       if (!res?.ok) return showError(res)
       setResult({ title: res.result.title, text: res.result.text })
     })
@@ -253,7 +272,7 @@ export default function App() {
       >
         <select
           value={provider}
-          onChange={(e) => setProvider(e.target.value)}
+          onChange={(e) => window.api?.setProvider(e.target.value)}
           aria-label="Provider"
           style={{
             WebkitAppRegion: 'no-drag',

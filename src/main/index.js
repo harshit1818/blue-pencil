@@ -3,8 +3,18 @@ import { join } from 'path'
 import { readFileSync, writeFileSync } from 'fs'
 import { color } from '@tokens'
 import { transform } from './transform.js'
-import { listProviders } from './providers.js'
+import { listProviders, effectiveSettings, isValidProvider } from './providers.js'
+import { setProviderId, setModelId } from './settings.js'
 import { hasApiKey, setApiKey, seedFromEnv } from './keychain.js'
+
+// After any settings write, push the effective snapshot to every window so they
+// stay in sync. A no-op echo with one window today; the overlay just subscribes.
+function broadcastSettings() {
+  const snapshot = effectiveSettings()
+  for (const w of BrowserWindow.getAllWindows()) {
+    w.webContents.send('settings:changed', snapshot)
+  }
+}
 
 const paperFor = (win) =>
   nativeTheme.shouldUseDarkColors ? color.dark.paper : color.light.paper
@@ -82,6 +92,22 @@ app.whenReady().then(async () => {
   ipcMain.handle('providers:list', () => listProviders())
   ipcMain.handle('key:has', (_event, provider) => hasApiKey(provider))
   ipcMain.handle('key:set', (_event, provider, key) => setApiKey(provider, key))
+
+  ipcMain.handle('settings:get', () => effectiveSettings())
+  ipcMain.handle('settings:setProvider', (_event, id) => {
+    if (isValidProvider(id)) {
+      setProviderId(id)
+      broadcastSettings()
+    }
+    return effectiveSettings()
+  })
+  ipcMain.handle('settings:setModel', (_event, id, model) => {
+    if (isValidProvider(id)) {
+      setModelId(id, model)
+      broadcastSettings()
+    }
+    return effectiveSettings()
+  })
 
   const win = createWindow()
 

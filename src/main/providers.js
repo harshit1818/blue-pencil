@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import OpenAI from 'openai'
 import { getApiKey } from './keychain.js'
+import { getSettings } from './settings.js'
 
 // ---- The single seam, now a small registry --------------------------------
 // Every provider exposes the same contract: ask(prompt) -> string. Adding a
@@ -48,6 +49,34 @@ export function listProviders() {
     label: p.label,
     defaultModel: p.defaultModel
   }))
+}
+
+const DEFAULT_PROVIDER = Object.keys(REGISTRY)[0]
+
+export function isValidProvider(id) {
+  return Boolean(REGISTRY[id])
+}
+
+// Effective active selection for a model call — validated against REGISTRY.
+// Falls back to the first provider / the provider's defaultModel when stored
+// values are missing or stale.
+export function resolveActive() {
+  const { provider, models } = getSettings()
+  const id = REGISTRY[provider] ? provider : DEFAULT_PROVIDER
+  const model = (models?.[id] || '').trim() || REGISTRY[id].defaultModel
+  return { provider: id, model }
+}
+
+// Renderer-facing view: the effective active provider id, plus an effective
+// model string for every registry provider (stored value or defaultModel).
+export function effectiveSettings() {
+  const { provider, models } = getSettings()
+  const active = REGISTRY[provider] ? provider : DEFAULT_PROVIDER
+  const out = {}
+  for (const [id, cfg] of Object.entries(REGISTRY)) {
+    out[id] = (models?.[id] || '').trim() || cfg.defaultModel
+  }
+  return { provider: active, models: out }
 }
 
 function noKey(provider) {

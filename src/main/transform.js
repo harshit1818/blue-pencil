@@ -1,8 +1,10 @@
-import { ask } from './providers.js'
+import { ask, resolveActive } from './providers.js'
 
 // Prompt construction lives here, between the IPC handler and the provider
-// registry. The renderer only sends a semantic action + the chosen provider/
-// model — never prompt text.
+// registry. The renderer sends only a semantic action; the active provider and
+// model are resolved here from the main-process settings — never prompt text.
+// (This is what lets a second window — the future overlay — request a transform
+// knowing nothing but the action.)
 
 const REWRITE_INSTRUCTIONS = {
   improve: 'Revise to improve clarity, flow and word choice while preserving meaning and voice.',
@@ -25,13 +27,13 @@ function parseJsonObject(raw) {
   return JSON.parse(raw.slice(start, end + 1))
 }
 
-// payload: { text, action: 'proofread'|'improve'|'simplify'|'summarize'|'tone',
-//            tone?, provider, model? }
+// payload: { text, action: 'proofread'|'improve'|'simplify'|'summarize'|'tone', tone? }
 // returns: { kind: 'proofread'|'rewrite', title, text, changes? }
-export async function transform({ text, action, tone, provider, model } = {}) {
+export async function transform({ text, action, tone } = {}) {
   const input = (text || '').trim()
   if (!input) throw new Error('Nothing to transform.')
 
+  const { provider, model } = resolveActive()
   const call = (prompt) => ask({ provider, model, prompt })
 
   if (action === 'proofread') {
