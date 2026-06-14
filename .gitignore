@@ -1,0 +1,36 @@
+# --- Secrets & credentials (never commit) ---
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.key
+*.cer
+*.mobileprovision
+*.keychain
+secrets/
+credentials/
+
+# --- Dependencies ---
+node_modules/
+.pnpm-store/
+
+# --- Build output ---
+out/
+dist/
+build/Release/
+*.app
+*.dmg
+*.zip
+
+# --- Logs ---
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# --- OS / editor cruft ---
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
