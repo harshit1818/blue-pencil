@@ -100,10 +100,24 @@ function createTray() {
   tray = new Tray(nativeImage.createEmpty())
   tray.setToolTip('Blue Pencil')
   tray.setTitle('✎')
+
+  // Login item only makes sense for the installed app, not the dev binary.
+  const loginItem = app.isPackaged
+    ? [
+        {
+          label: 'Launch at login',
+          type: 'checkbox',
+          checked: app.getLoginItemSettings().openAtLogin,
+          click: (item) => app.setLoginItemSettings({ openAtLogin: item.checked })
+        }
+      ]
+    : []
+
   tray.setContextMenu(
     Menu.buildFromTemplate([
       { label: 'Open Blue Pencil', click: showMainWindow },
       { label: `Shortcut: ${HOTKEY_LABEL}`, enabled: false },
+      ...loginItem,
       { type: 'separator' },
       {
         label: 'Quit Blue Pencil',

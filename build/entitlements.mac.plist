@@ -10,5 +10,8 @@
   <!-- The provider adapter (main process) calls the Anthropic API. -->
   <key>com.apple.security.network.client</key>
   <true/>
+  <!-- Let the keytar native module load under a hardened/notarized build. -->
+  <key>com.apple.security.cs.disable-library-validation</key>
+  <true/>
 </dict>
 </plist>
