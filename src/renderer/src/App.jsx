@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { Check, Copy, Loader2, PenLine, X, AlertCircle, CornerDownLeft, KeyRound } from 'lucide-react'
 import { color, font, radius, shadow, space } from '@tokens'
 
-// All visual values come from tokens.js — nothing is hardcoded here.
+// All visual values come from src/shared/tokens.js — nothing is hardcoded here.
 
 // Actions are semantic ids only — prompt text lives in the main process.
 const ACTIONS = [
