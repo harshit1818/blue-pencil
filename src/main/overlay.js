@@ -1,5 +1,6 @@
 import { BrowserWindow, screen } from 'electron'
 import { join } from 'path'
+import { restoreClipboardIfPending } from './automation.js'
 
 // A single reused, frameless, transparent, always-on-top popover window shown
 // near the cursor on hotkey. Created lazily and hidden (not destroyed) between
@@ -8,6 +9,7 @@ import { join } from 'path'
 let win = null
 let rendererReady = false // the popover renderer has mounted + attached its listeners
 let pendingText = null // text captured for a summon not yet delivered to the renderer
+let pendingAccessibility = false // whether that summon's grab was the auto (v1) path
 
 function create() {
   rendererReady = false
@@ -65,9 +67,10 @@ function positionAtCursor() {
 function flush() {
   if (!win || !rendererReady || pendingText === null) return
   const text = pendingText
+  const accessibility = pendingAccessibility
   pendingText = null
   positionAtCursor()
-  win.webContents.send('popover:show', { text })
+  win.webContents.send('popover:show', { text, accessibility })
   win.show()
   win.focus()
 }
@@ -78,14 +81,17 @@ export function markRendererReady() {
   flush()
 }
 
-export function showOverlayAtCursor(text) {
+export function showOverlayAtCursor(text, accessibility) {
   if (!win) create()
   pendingText = text
+  pendingAccessibility = Boolean(accessibility)
   flush() // sends now if the renderer is ready; otherwise markRendererReady() will
 }
 
 export function hideOverlay() {
   if (win && win.isVisible()) win.hide()
+  // A grab that was never pasted should leave the user's clipboard as it was.
+  restoreClipboardIfPending()
 }
 
 export function resizeOverlay(w, h) {

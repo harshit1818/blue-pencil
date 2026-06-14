@@ -24,7 +24,11 @@ const api = {
   popoverReady: () => ipcRenderer.send('popover:ready'),
   popoverResize: (w, h) => ipcRenderer.send('popover:resize', w, h),
   popoverDismiss: () => ipcRenderer.send('popover:dismiss'),
-  clipboardWrite: (text) => ipcRenderer.invoke('clipboard:write', text)
+  clipboardWrite: (text) => ipcRenderer.invoke('clipboard:write', text),
+  pasteBack: (text) => ipcRenderer.invoke('hotkey:pasteBack', text),
+  requestAccessibility: () => ipcRenderer.invoke('accessibility:request'),
+  openAccessibilitySettings: () => ipcRenderer.send('accessibility:openSettings'),
+  relaunchApp: () => ipcRenderer.send('accessibility:relaunch')
 }
 
 contextBridge.exposeInMainWorld('api', api)

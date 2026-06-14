@@ -8,6 +8,7 @@ import { setProviderId, setModelId } from './settings.js'
 import { hasApiKey, setApiKey, seedFromEnv } from './keychain.js'
 import { registerHotkey, unregisterHotkey } from './hotkey.js'
 import { resizeOverlay, hideOverlay, markRendererReady } from './overlay.js'
+import { pasteBack, requestAccessibility, openAccessibilitySettings, relaunchApp } from './automation.js'
 
 // After any settings write, push the effective snapshot to every window so they
 // stay in sync. A no-op echo with one window today; the overlay just subscribes.
@@ -116,6 +117,15 @@ app.whenReady().then(async () => {
   ipcMain.on('popover:resize', (_event, w, h) => resizeOverlay(w, h))
   ipcMain.on('popover:dismiss', () => hideOverlay())
   ipcMain.handle('clipboard:write', (_event, text) => clipboard.writeText(text ?? ''))
+
+  // v1 deliver seam (granted): paste the result into the source app, then dismiss.
+  ipcMain.handle('hotkey:pasteBack', async (_event, text) => {
+    await pasteBack(text)
+    hideOverlay()
+  })
+  ipcMain.handle('accessibility:request', () => requestAccessibility())
+  ipcMain.on('accessibility:openSettings', () => openAccessibilitySettings())
+  ipcMain.on('accessibility:relaunch', () => relaunchApp())
 
   registerHotkey()
 

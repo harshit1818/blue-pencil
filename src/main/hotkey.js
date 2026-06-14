@@ -1,10 +1,11 @@
 import { globalShortcut, clipboard, BrowserWindow } from 'electron'
 import { showOverlayAtCursor, hideOverlay, isOverlayVisible } from './overlay.js'
+import { isAccessibilityGranted, grabSelection } from './automation.js'
 
-// Default accelerator; standard combos don't need Accessibility. Configurable later.
+// Default accelerator; standard combos don't need Accessibility to register.
 const ACCELERATOR = "CommandOrControl+Shift+'"
 
-function onFire() {
+async function onFire() {
   // Toggle: a second press while open dismisses.
   if (isOverlayVisible()) {
     hideOverlay()
@@ -13,9 +14,12 @@ function onFire() {
   // Don't summon over our own UI (interaction-spec edge case).
   if (BrowserWindow.getFocusedWindow()) return
 
-  // v0 "grab" seam — use whatever the user already copied. v1 replaces this with
-  // synth-⌘C + pasteboard changeCount read (and records the frontmost app).
-  showOverlayAtCursor(clipboard.readText())
+  // v1 grab seam: when Accessibility is granted, auto-copy the selection (the
+  // source app is still frontmost here, before the overlay shows). Otherwise
+  // fall back to v0 — read whatever the user already copied.
+  const granted = isAccessibilityGranted()
+  const text = granted ? await grabSelection() : clipboard.readText()
+  showOverlayAtCursor(text, granted)
 }
 
 export function registerHotkey() {

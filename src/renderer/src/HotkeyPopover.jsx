@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Copy } from 'lucide-react'
+import { Copy, CornerDownLeft } from 'lucide-react'
 import { color, font, radius } from '@tokens'
 import ActionPanel from './ActionPanel.jsx'
 
 // The hotkey overlay's container: a read-only preview of the grabbed text plus
 // the shared ActionPanel. Floats over other apps; the active provider comes from
-// main (settings), so it sends only { text, action } and never thinks about
-// providers. The card chrome lives here; the panel content is shared.
+// main (settings), so it sends only { text, action }. The primary button and the
+// empty-state copy switch on whether Accessibility (auto-grab/paste) is granted.
 
 const ACTIONS = [
   { id: 'proofread', label: 'Proofread' },
@@ -37,6 +37,7 @@ function useThemeColors() {
 export default function HotkeyPopover() {
   const C = useThemeColors()
   const [captured, setCaptured] = useState('')
+  const [accessibility, setAccessibility] = useState(false)
   const [providers, setProviders] = useState([])
   const [provider, setProvider] = useState('')
   const [busy, setBusy] = useState(null)
@@ -45,25 +46,28 @@ export default function HotkeyPopover() {
   const [marks, setMarks] = useState(null)
   const [copied, setCopied] = useState(false)
   const [hint, setHint] = useState(null)
+  const [needsRestart, setNeedsRestart] = useState(false)
   const rootRef = useRef(null)
   const onKeyRef = useRef(null)
 
   const providerLabel = providers.find((p) => p.id === provider)?.label || provider
   const words = captured.trim() ? captured.trim().split(/\s+/).length : 0
 
-  // Each hotkey invocation delivers fresh captured text — reset everything.
+  // Each hotkey invocation delivers fresh captured text + permission status.
   useEffect(() => {
     const applySettings = (s) => {
       if (s) setProvider(s.provider || '')
     }
-    const unsubShow = window.api?.onPopoverShow?.(({ text }) => {
+    const unsubShow = window.api?.onPopoverShow?.(({ text, accessibility: a }) => {
       setCaptured(text || '')
+      setAccessibility(Boolean(a))
       setBusy(null)
       setError(null)
       setResult(null)
       setMarks(null)
       setCopied(false)
       setHint(null)
+      setNeedsRestart(false)
     })
     const unsubSettings = window.api?.onSettingsChanged?.(applySettings)
     // Tell main the listeners are attached so it can safely deliver the capture
@@ -143,14 +147,24 @@ export default function HotkeyPopover() {
       setResult({ title: res.result.title, text: res.result.text })
     })
 
-  // v0 "deliver" seam: write to clipboard; the user pastes. Popover stays open.
-  // v1 adds reactivate-prev-app + synth-⌘V here, then dismisses.
+  // v1 DELIVER seam. Granted: paste back into the source app (main does it, then
+  // dismisses). Not granted: v0 behavior — copy to clipboard + "press ⌘V" hint.
   const deliver = async () => {
     if (!result) return
+    if (accessibility) {
+      await window.api.pasteBack(result.text)
+      return
+    }
     await window.api.clipboardWrite(result.text)
     setCopied(true)
     setHint(COPIED_HINT)
     setTimeout(() => setCopied(false), 1300)
+  }
+
+  const enableAuto = async () => {
+    await window.api?.requestAccessibility?.()
+    window.api?.openAccessibilitySettings?.()
+    setNeedsRestart(true)
   }
 
   // Reassigned every render so the keydown wrapper always sees fresh state.
@@ -168,6 +182,20 @@ export default function HotkeyPopover() {
     }
     const n = Number(e.key)
     if (Number.isInteger(n) && n >= 1 && n <= ACTIONS.length) doAction(ACTIONS[n - 1].id)
+  }
+
+  const primary = accessibility
+    ? { label: 'Paste back', icon: <CornerDownLeft size={13} />, onClick: deliver }
+    : { label: 'Copy', icon: <Copy size={13} />, onClick: deliver }
+
+  const linkBtn = {
+    font: `600 11px ${font.grotesk}`,
+    color: C.pencil,
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    padding: 0,
+    textDecoration: 'underline'
   }
 
   return (
@@ -191,7 +219,9 @@ export default function HotkeyPopover() {
 
       {!captured.trim() ? (
         <div style={{ padding: 16, font: `400 13px ${font.grotesk}`, color: C.muted }}>
-          Copy text (⌘C), then press {HOTKEY_LABEL}.
+          {accessibility
+            ? `Select text, then press ${HOTKEY_LABEL}.`
+            : `Copy text (⌘C), then press ${HOTKEY_LABEL}.`}
         </div>
       ) : (
         <>
@@ -224,9 +254,39 @@ export default function HotkeyPopover() {
             onAction={doAction}
             onTone={reTone}
             onCopy={deliver}
-            primary={{ label: 'Copy', icon: <Copy size={13} />, onClick: deliver }}
+            primary={primary}
             hint={hint}
           />
+
+          {!accessibility && (
+            <div
+              style={{
+                padding: '8px 14px',
+                borderTop: `1px solid ${C.line}`,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                font: `400 11px ${font.grotesk}`,
+                color: C.muted
+              }}
+            >
+              {needsRestart ? (
+                <>
+                  <span>Enabled it? Restart to turn on auto-paste.</span>
+                  <button onClick={() => window.api?.relaunchApp?.()} style={linkBtn}>
+                    Restart
+                  </button>
+                </>
+              ) : (
+                <>
+                  <span>Auto-paste is off — you’ll paste with ⌘V.</span>
+                  <button onClick={enableAuto} style={linkBtn}>
+                    Enable
+                  </button>
+                </>
+              )}
+            </div>
+          )}
         </>
       )}
     </div>
