@@ -7,12 +7,14 @@ const root = dirname(fileURLToPath(import.meta.url))
 const tokens = resolve(root, 'src/shared/tokens.js')
 
 // keytar and @anthropic-ai/sdk stay external (native module / node runtime).
+// 'marked' is ESM-only, so it must be bundled into the CJS main output rather
+// than left as a require() (which Node refuses for ESM) — hence the exclude.
 // '@tokens' resolves to src/shared/tokens.js so main and renderer share one
 // source of truth for colors/type/spacing.
 export default defineConfig({
   main: {
     resolve: { alias: { '@tokens': tokens } },
-    plugins: [externalizeDepsPlugin()]
+    plugins: [externalizeDepsPlugin({ exclude: ['marked'] })]
   },
   preload: {
     plugins: [externalizeDepsPlugin()]
