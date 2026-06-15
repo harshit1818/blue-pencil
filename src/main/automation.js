@@ -47,24 +47,55 @@ async function frontmostApp() {
   }
 }
 
+// Bundle id is the stable key for the delivery profile registry (the process name
+// is localized / display-only). Best-effort: falls back to the name if unavailable.
+async function frontmostBundleId() {
+  try {
+    return await osa(
+      'tell application "System Events" to get bundle identifier of first application process whose frontmost is true'
+    )
+  } catch {
+    return null
+  }
+}
+
+// Snapshot every clipboard flavor we can later restore. text/html/rtf cover the
+// rich-text cases; images and app-specific flavors are out of scope (a copied
+// image is lost during an action — accepted).
+function snapshotClipboard() {
+  return { text: clipboard.readText(), html: clipboard.readHTML(), rtf: clipboard.readRTF() }
+}
+
+// Restore only the flavors that were actually present, so we never clobber the
+// clipboard with empty strings.
+function restoreClipboard(snap) {
+  if (!snap) return
+  const data = {}
+  if (snap.text) data.text = snap.text
+  if (snap.html) data.html = snap.html
+  if (snap.rtf) data.rtf = snap.rtf
+  if (Object.keys(data).length) clipboard.write(data)
+  else clipboard.clear()
+}
+
 async function keyCmd(letter) {
   await osa(`tell application "System Events" to keystroke "${letter}" using command down`)
 }
 
 // Stash for the in-flight grab, consumed by pasteBack() or restoreClipboardIfPending().
-let pending = null // { savedClipboard, frontApp }
+let pending = null // { savedClipboard, frontApp, bundleId }
 
 // v1 GRAB seam — synthesize ⌘C while the source app is still frontmost. Returns
-// the selected text ('' if nothing was selected). Stashes the prior clipboard +
-// source app so we can paste back and restore afterwards.
+// the selected text ('' if nothing was selected). Stashes the prior clipboard
+// (all flavors) + source app so we can paste back and restore afterwards.
 export async function grabSelection() {
-  const savedClipboard = clipboard.readText()
-  const frontApp = await frontmostApp()
+  const savedClipboard = snapshotClipboard()
+  const [frontApp, bundleId] = await Promise.all([frontmostApp(), frontmostBundleId()])
   clipboard.writeText('') // sentinel: empty means ⌘C copied nothing
   try {
     await keyCmd('c')
   } catch {
-    clipboard.writeText(savedClipboard) // permission denied — restore and bail
+    restoreClipboard(savedClipboard) // permission denied — restore and bail
     pending = null
     return ''
   }
@@ -77,7 +108,7 @@ export async function grabSelection() {
     }
     await sleep(10) // ~400ms cap total — deterministic, no fixed guess
   }
-  pending = { savedClipboard, frontApp }
+  pending = { savedClipboard, frontApp, bundleId }
   return selection
 }
 
@@ -98,7 +129,7 @@ export async function pasteBack(text) {
   } catch {
     /* best effort */
   } finally {
-    if (stash) clipboard.writeText(stash.savedClipboard)
+    if (stash) restoreClipboard(stash.savedClipboard)
   }
 }
 
@@ -106,7 +137,7 @@ export async function pasteBack(text) {
 // user's original clipboard back (a cancelled grab shouldn't leave the selection).
 export function restoreClipboardIfPending() {
   if (pending) {
-    clipboard.writeText(pending.savedClipboard)
+    restoreClipboard(pending.savedClipboard)
     pending = null
   }
 }
