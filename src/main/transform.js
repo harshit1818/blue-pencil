@@ -27,8 +27,18 @@ function parseJsonObject(raw) {
   return JSON.parse(raw.slice(start, end + 1))
 }
 
-// payload: { text, action: 'proofread'|'improve'|'simplify'|'summarize'|'tone', tone? }
-// returns: { kind: 'proofread'|'rewrite', title, text, changes? }
+// Identify-and-add-structure. Returns Markdown; markdown:true on the result drives
+// both the rendered preview and target-aware delivery. (When the other actions
+// become Markdown-aware in the next slice they set the same flag — no other change.)
+const FORMAT_INSTRUCTION =
+  'Identify the appropriate structure in the text below and apply Markdown formatting: ' +
+  'headings, bold for emphasis, bullet or numbered lists, fenced code blocks for code, ' +
+  'inline code for identifiers, and blockquotes where apt. Do NOT change the wording, ' +
+  'add, or remove content. Output GitHub-flavored Markdown only, with no HTML and no ' +
+  'commentary.'
+
+// payload: { text, action: 'proofread'|'improve'|'simplify'|'summarize'|'format'|'tone', tone? }
+// returns: { kind: 'proofread'|'rewrite', title, text, changes?, markdown? }
 export async function transform({ text, action, tone } = {}) {
   const input = (text || '').trim()
   if (!input) throw new Error('Nothing to transform.')
@@ -55,6 +65,11 @@ export async function transform({ text, action, tone } = {}) {
     } catch {
       return { kind: 'rewrite', title: 'Proofread', text: raw }
     }
+  }
+
+  if (action === 'format') {
+    const out = await call(`${FORMAT_INSTRUCTION}\n\nText:\n"""${input}"""`)
+    return { kind: 'rewrite', title: 'Format', text: out, markdown: true }
   }
 
   if (action === 'tone') {
