@@ -45,6 +45,7 @@
       "package.json"
     ],
     "mac": {
+      "icon": "build/icon.icns",
       "category": "public.app-category.productivity",
       "extendInfo": {
         "LSUIElement": true
