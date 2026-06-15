@@ -72,7 +72,7 @@ async function keyCmd(letter) {
 }
 
 // Stash for the in-flight grab, consumed by pasteBack() or restoreClipboardIfPending().
-let pending = null // { savedClipboard, frontApp, bundleId }
+let pending = null // { savedClipboard, frontApp }
 
 // v1 GRAB seam — synthesize ⌘C while the source app is still frontmost. Returns
 // the selected text ('' if nothing was selected). Stashes the prior clipboard
