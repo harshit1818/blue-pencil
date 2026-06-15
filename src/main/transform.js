@@ -1,4 +1,5 @@
 import { ask, resolveActive } from './providers.js'
+import { unwrapModelText } from './markdown.js'
 
 // Prompt construction lives here, between the IPC handler and the provider
 // registry. The renderer sends only a semantic action; the active provider and
@@ -80,13 +81,14 @@ export async function transform({ text, action, tone, markdown = false } = {}) {
         markdown
       }
     } catch {
-      return { kind: 'rewrite', title: 'Proofread', text: raw, markdown }
+      return { kind: 'rewrite', title: 'Proofread', text: unwrapModelText(raw, { allowBare: true }), markdown }
     }
   }
 
   if (action === 'format') {
     const out = await call(`${FORMAT_INSTRUCTION}\n\nText:\n"""${input}"""`)
-    return { kind: 'rewrite', title: 'Format', text: out, markdown: true }
+    // allowBare:false — a Format result may legitimately be a single fenced block.
+    return { kind: 'rewrite', title: 'Format', text: unwrapModelText(out), markdown: true }
   }
 
   if (action === 'tone') {
@@ -97,7 +99,7 @@ export async function transform({ text, action, tone, markdown = false } = {}) {
         preserve +
         ` Return ONLY the rewritten text.\n\nText:\n"""${input}"""`
     )
-    return { kind: 'rewrite', title: `${t} tone`, text: out, markdown }
+    return { kind: 'rewrite', title: `${t} tone`, text: unwrapModelText(out, { allowBare: true }), markdown }
   }
 
   const instruction = REWRITE_INSTRUCTIONS[action]
@@ -105,5 +107,10 @@ export async function transform({ text, action, tone, markdown = false } = {}) {
   const out = await call(
     `${instruction}${preserve}\n\nReturn ONLY the resulting text, no preamble.\n\nText:\n"""${input}"""`
   )
-  return { kind: 'rewrite', title: REWRITE_TITLES[action], text: out, markdown }
+  return {
+    kind: 'rewrite',
+    title: REWRITE_TITLES[action],
+    text: unwrapModelText(out, { allowBare: true }),
+    markdown
+  }
 }

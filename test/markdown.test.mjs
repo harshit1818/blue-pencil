@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mdToHtml, htmlToMd } from '../src/main/markdown.js'
+import { mdToHtml, htmlToMd, unwrapModelText } from '../src/main/markdown.js'
 
 test('mdToHtml renders structure', () => {
   const html = mdToHtml('# Title\n\n**bold** and `code`\n\n- one\n- two')
@@ -30,4 +30,27 @@ test('htmlToMd converts a rich selection to Markdown', () => {
 test('htmlToMd returns empty for empty/absent html (plain-only grab)', () => {
   assert.equal(htmlToMd(''), '')
   assert.equal(htmlToMd(null), '')
+})
+
+test('unwrapModelText strips a ```markdown wrapper always', () => {
+  assert.equal(unwrapModelText('```markdown\n# Hi\n\n- a\n```'), '# Hi\n\n- a')
+  assert.equal(unwrapModelText('```md\nhello\n```'), 'hello')
+})
+
+test('unwrapModelText strips a bare ``` wrapper only when allowBare', () => {
+  assert.equal(unwrapModelText('```\nhello there\n```', { allowBare: true }), 'hello there')
+  // Format path (allowBare false): a real single code block must be left intact.
+  assert.equal(unwrapModelText('```\nconst x = 1\n```'), '```\nconst x = 1\n```')
+  // A language-tagged code block is never a wrapper — left intact either way.
+  assert.equal(unwrapModelText('```go\nx := 1\n```', { allowBare: true }), '```go\nx := 1\n```')
+})
+
+test('unwrapModelText strips a leading preamble line', () => {
+  assert.equal(unwrapModelText("Here's the revised text:\n\n# Hi"), '# Hi')
+  assert.equal(unwrapModelText('Sure! Here is the result:\nDone'), 'Done')
+})
+
+test('unwrapModelText leaves clean output and mid-content fences untouched', () => {
+  assert.equal(unwrapModelText('# Real\n\n```go\nx := 1\n```'), '# Real\n\n```go\nx := 1\n```')
+  assert.equal(unwrapModelText('just prose'), 'just prose')
 })

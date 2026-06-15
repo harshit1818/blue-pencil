@@ -38,3 +38,22 @@ const turndown = new TurndownService({
 export function htmlToMd(html) {
   return turndown.turndown(String(html ?? '')).trim()
 }
+
+// Models (Groq especially) sometimes wrap a whole reply in a ```markdown fence or
+// open with a preamble like "Here's the revised text:". Strip both so the wrapper
+// doesn't render as one big code block or ride along into the paste. A ```markdown
+// / ```md wrapper is always spurious; a *bare* ``` wrapper is only stripped when
+// allowBare is set (prose rewrites) — a Format result can legitimately BE a single
+// code block, so we don't unwrap bare fences there.
+export function unwrapModelText(raw, { allowBare = false } = {}) {
+  let s = String(raw ?? '').trim()
+  const fence = s.match(/^```([\w-]*)[ \t]*\n([\s\S]*?)\n```$/)
+  if (fence) {
+    const lang = fence[1].toLowerCase()
+    if (lang === 'markdown' || lang === 'md' || (allowBare && lang === '')) {
+      s = fence[2].trim()
+    }
+  }
+  s = s.replace(/^(?:sure[,.!]?|certainly[,.!]?|here(?:'s| is)\b|below is\b)[^\n]*:[ \t]*\n+/i, '')
+  return s.trim()
+}
