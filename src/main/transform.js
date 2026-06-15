@@ -64,7 +64,9 @@ export async function transform({ text, action, tone, markdown = false } = {}) {
 
   if (action === 'proofread') {
     const raw = await call(
-      'You are a copy editor. Correct spelling, grammar and punctuation in the text below.' +
+      'You are a copy editor. Make the smallest set of edits that fix spelling, grammar and ' +
+        'punctuation errors. Do NOT rewrite, rephrase, reorder, or improve style — preserve the ' +
+        'original wording, tone and structure verbatim except for the specific errors you correct.' +
         preserve +
         ' Respond ONLY with minified JSON shaped ' +
         '{"corrected":string,"changes":[{"before":string,"after":string,"reason":string}]}. ' +
