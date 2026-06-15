@@ -31,11 +31,17 @@ function parseJsonObject(raw) {
 // both the rendered preview and target-aware delivery. (When the other actions
 // become Markdown-aware in the next slice they set the same flag — no other change.)
 const FORMAT_INSTRUCTION =
-  'Identify the appropriate structure in the text below and apply Markdown formatting: ' +
-  'headings, bold for emphasis, bullet or numbered lists, fenced code blocks for code, ' +
-  'inline code for identifiers, and blockquotes where apt. Do NOT change the wording, ' +
-  'add, or remove content. Output GitHub-flavored Markdown only, with no HTML and no ' +
-  'commentary.'
+  'Add Markdown structure to the text below so it reads cleanly. Rules:\n' +
+  '- Keep the original wording. You may adjust whitespace and add list markers, but do ' +
+  'not add, remove, or reorder information.\n' +
+  '- Keep related sentences together in one paragraph; separate blocks with a blank ' +
+  'line. Do not put every sentence on its own line.\n' +
+  '- Use a bullet or numbered list ONLY for a genuine enumeration of items.\n' +
+  '- Use inline code for commands, identifiers, file paths and env vars; fenced code ' +
+  'blocks for multi-line code.\n' +
+  '- Use **bold** sparingly for real emphasis. Do NOT invent a heading unless the text ' +
+  'clearly has a title.\n' +
+  'Output GitHub-flavored Markdown only — no HTML, no commentary.'
 
 // payload: { text, action: 'proofread'|'improve'|'simplify'|'summarize'|'format'|'tone', tone? }
 // returns: { kind: 'proofread'|'rewrite', title, text, changes?, markdown? }

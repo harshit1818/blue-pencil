@@ -16,7 +16,7 @@ function escapeHtml(s) {
 // object ({ text }) to renderer hooks; tolerate a bare string too.
 const htmlEscaper = (token) => escapeHtml(typeof token === 'string' ? token : token?.text ?? '')
 
-const md = new Marked({ gfm: true, breaks: true })
+const md = new Marked({ gfm: true, breaks: false })
 md.use({ renderer: { html: htmlEscaper } })
 
 export function mdToHtml(source) {

@@ -8,7 +8,9 @@ import { useThemeColors } from './useTheme.js'
 // bullets/code are visible before delivering. DOMPurify is the renderer-side
 // safety net (the deliver-side html has its own escaping in main/markdown.js).
 
-marked.setOptions({ gfm: true, breaks: true })
+// breaks:false — standard Markdown, so single newlines fold into the paragraph
+// instead of becoming hard <br>s (avoids a line break per source line).
+marked.setOptions({ gfm: true, breaks: false })
 
 export default function Markdown({ source }) {
   const C = useThemeColors()

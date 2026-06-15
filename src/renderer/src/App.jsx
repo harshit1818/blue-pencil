@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
-import { PenLine, X, CornerDownLeft, KeyRound } from 'lucide-react'
+import { PenLine, X, CornerDownLeft, KeyRound, Copy } from 'lucide-react'
 import { font, radius, shadow, space } from '@tokens'
 import ActionPanel from './ActionPanel.jsx'
 import { useThemeColors } from './useTheme.js'
@@ -435,7 +435,14 @@ export default function App() {
                   onAction={doAction}
                   onTone={reTone}
                   onCopy={copy}
-                  primary={{ label: 'Replace', icon: <CornerDownLeft size={13} />, onClick: apply }}
+                  primary={
+                    // A Markdown result can't render in the plain editor, so Replace
+                    // would just dump raw `**`/`#` source — Copy (rich) is the useful
+                    // action. Plain results still Replace in place.
+                    result?.markdown
+                      ? { label: 'Copy', icon: <Copy size={13} />, onClick: copy }
+                      : { label: 'Replace', icon: <CornerDownLeft size={13} />, onClick: apply }
+                  }
                 />
               </div>
             )}
