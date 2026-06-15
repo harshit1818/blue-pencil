@@ -12,6 +12,10 @@ const ACTIONS = [
   { id: 'improve', label: 'Improve' },
   { id: 'simplify', label: 'Simplify' },
   { id: 'summarize', label: 'Summarize' },
+  { id: 'paraphrase', label: 'Paraphrase' },
+  { id: 'neutralize', label: 'Neutralize' },
+  { id: 'formalize', label: 'Formalize' },
+  { id: 'coherence', label: 'Coherence' },
   { id: 'format', label: 'Format' }
 ]
 const TONES = ['Professional', 'Confident', 'Friendly', 'Concise']

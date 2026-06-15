@@ -10,13 +10,25 @@ import { unwrapModelText } from './markdown.js'
 const REWRITE_INSTRUCTIONS = {
   improve: 'Revise to improve clarity, flow and word choice while preserving meaning and voice.',
   simplify: 'Rewrite so it is clear and easy to read; cut unnecessary words.',
-  summarize: 'Summarize concisely in the same voice.'
+  summarize: 'Summarize concisely in the same voice.',
+  paraphrase:
+    'Reword to express the same meaning with different phrasing and sentence structure; keep the meaning and key facts intact.',
+  neutralize:
+    'Rewrite to remove subjective, biased, emotional or promotional language; state it factually and even-handedly while preserving the information.',
+  formalize:
+    'Rewrite in a formal register; remove casual phrasing, contractions and slang while preserving meaning.',
+  coherence:
+    'Improve the logical flow and the connections between sentences so it reads coherently; preserve the meaning and keep the wording where you can.'
 }
 
 const REWRITE_TITLES = {
   improve: 'Improve',
   simplify: 'Simplify',
-  summarize: 'Summarize'
+  summarize: 'Summarize',
+  paraphrase: 'Paraphrase',
+  neutralize: 'Neutralize',
+  formalize: 'Formalize',
+  coherence: 'Coherence'
 }
 
 // Pull the first {...} object out of a model reply, tolerating code fences or
