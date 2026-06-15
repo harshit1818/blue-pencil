@@ -27,9 +27,8 @@ function parseJsonObject(raw) {
   return JSON.parse(raw.slice(start, end + 1))
 }
 
-// Identify-and-add-structure. Returns Markdown; markdown:true on the result drives
-// both the rendered preview and target-aware delivery. (When the other actions
-// become Markdown-aware in the next slice they set the same flag — no other change.)
+// Identify-and-add-structure. Always returns Markdown (markdown:true), regardless of
+// whether the input was already rich — Format's whole job is to add structure.
 const FORMAT_INSTRUCTION =
   'Add Markdown structure to the text below so it reads cleanly. Rules:\n' +
   '- Keep the original wording. You may adjust whitespace and add list markers, but do ' +
@@ -43,19 +42,30 @@ const FORMAT_INSTRUCTION =
   'clearly has a title.\n' +
   'Output GitHub-flavored Markdown only — no HTML, no commentary.'
 
-// payload: { text, action: 'proofread'|'improve'|'simplify'|'summarize'|'format'|'tone', tone? }
-// returns: { kind: 'proofread'|'rewrite', title, text, changes?, markdown? }
-export async function transform({ text, action, tone } = {}) {
+// When the grabbed input was rich text (Case 1), instruct the model to preserve its
+// Markdown so an edit doesn't flatten the formatting. The result then carries the
+// same markdown flag, so it renders in the preview and delivers as rich text.
+const preserveClause = (markdown) =>
+  markdown
+    ? ' The text is in Markdown — preserve all of its formatting (bold, italics, lists, ' +
+      'inline and fenced code, headings, blockquotes, links) and return Markdown.'
+    : ''
+
+// payload: { text, action: 'proofread'|'improve'|'simplify'|'summarize'|'format'|'tone', tone?, markdown? }
+// returns: { kind: 'proofread'|'rewrite', title, text, changes?, markdown }
+export async function transform({ text, action, tone, markdown = false } = {}) {
   const input = (text || '').trim()
   if (!input) throw new Error('Nothing to transform.')
 
   const { provider, model } = resolveActive()
   const call = (prompt) => ask({ provider, model, prompt })
+  const preserve = preserveClause(markdown)
 
   if (action === 'proofread') {
     const raw = await call(
-      'You are a copy editor. Correct spelling, grammar and punctuation in the text below. ' +
-        'Respond ONLY with minified JSON shaped ' +
+      'You are a copy editor. Correct spelling, grammar and punctuation in the text below.' +
+        preserve +
+        ' Respond ONLY with minified JSON shaped ' +
         '{"corrected":string,"changes":[{"before":string,"after":string,"reason":string}]}. ' +
         'Use an empty changes array if the text is already clean.\n\n' +
         `Text:\n"""${input}"""`
@@ -66,10 +76,11 @@ export async function transform({ text, action, tone } = {}) {
         kind: 'proofread',
         title: 'Proofread',
         text: parsed.corrected || input,
-        changes: Array.isArray(parsed.changes) ? parsed.changes : []
+        changes: Array.isArray(parsed.changes) ? parsed.changes : [],
+        markdown
       }
     } catch {
-      return { kind: 'rewrite', title: 'Proofread', text: raw }
+      return { kind: 'rewrite', title: 'Proofread', text: raw, markdown }
     }
   }
 
@@ -82,16 +93,17 @@ export async function transform({ text, action, tone } = {}) {
     const t = (tone || '').trim()
     if (!t) throw new Error('No tone specified.')
     const out = await call(
-      `Rewrite the text in a ${t.toLowerCase()} tone, preserving meaning. ` +
-        `Return ONLY the rewritten text.\n\nText:\n"""${input}"""`
+      `Rewrite the text in a ${t.toLowerCase()} tone, preserving meaning.` +
+        preserve +
+        ` Return ONLY the rewritten text.\n\nText:\n"""${input}"""`
     )
-    return { kind: 'rewrite', title: `${t} tone`, text: out }
+    return { kind: 'rewrite', title: `${t} tone`, text: out, markdown }
   }
 
   const instruction = REWRITE_INSTRUCTIONS[action]
   if (!instruction) throw new Error(`Unknown action: ${action}`)
   const out = await call(
-    `${instruction}\n\nReturn ONLY the resulting text, no preamble.\n\nText:\n"""${input}"""`
+    `${instruction}${preserve}\n\nReturn ONLY the resulting text, no preamble.\n\nText:\n"""${input}"""`
   )
-  return { kind: 'rewrite', title: REWRITE_TITLES[action], text: out }
+  return { kind: 'rewrite', title: REWRITE_TITLES[action], text: out, markdown }
 }
