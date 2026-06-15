@@ -1,6 +1,6 @@
 import { execFile } from 'child_process'
 import { clipboard, systemPreferences, shell, app } from 'electron'
-import { mdToHtml } from './markdown.js'
+import { mdToHtml, htmlToMd } from './markdown.js'
 
 // v1 "works-now" automation via osascript / System Events — no native addon.
 // Trade-off vs a native module: synthesizing keystrokes this way can trigger a
@@ -71,12 +71,26 @@ async function keyCmd(letter) {
   await osa(`tell application "System Events" to keystroke "${letter}" using command down`)
 }
 
+// Read the current clipboard as Markdown (Case 1). A rich selection populates the
+// html flavor, which we convert to Markdown so the model preserves the formatting;
+// a plain selection has no html flavor and stays plain text.
+export function readClipboardSelection() {
+  const html = clipboard.readHTML()
+  if (html) {
+    const md = htmlToMd(html)
+    if (md) return { text: md, markdown: true }
+  }
+  return { text: clipboard.readText(), markdown: false }
+}
+
 // Stash for the in-flight grab, consumed by pasteBack() or restoreClipboardIfPending().
 let pending = null // { savedClipboard, frontApp }
 
 // v1 GRAB seam — synthesize ⌘C while the source app is still frontmost. Returns
-// the selected text ('' if nothing was selected). Stashes the prior clipboard
-// (all flavors) + source app so we can paste back and restore afterwards.
+// { text, markdown } ({ text: '', markdown: false } if nothing was selected).
+// Stashes the prior clipboard (all flavors) + source app so we can paste back and
+// restore afterwards. writeText('') clears every flavor, so a leftover html from a
+// previous copy can't be mistaken for this selection's formatting.
 export async function grabSelection() {
   const savedClipboard = snapshotClipboard()
   const frontApp = await frontmostApp()
@@ -86,19 +100,18 @@ export async function grabSelection() {
   } catch {
     restoreClipboard(savedClipboard) // permission denied — restore and bail
     pending = null
-    return ''
+    return { text: '', markdown: false }
   }
-  let selection = ''
+  let copied = false
   for (let i = 0; i < 40; i++) {
-    const cur = clipboard.readText()
-    if (cur) {
-      selection = cur
+    if (clipboard.readText()) {
+      copied = true
       break
     }
     await sleep(10) // ~400ms cap total — deterministic, no fixed guess
   }
   pending = { savedClipboard, frontApp }
-  return selection
+  return copied ? readClipboardSelection() : { text: '', markdown: false }
 }
 
 // A Markdown result is always delivered as rich text — the rendered HTML — with

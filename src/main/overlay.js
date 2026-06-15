@@ -10,6 +10,7 @@ let win = null
 let rendererReady = false // the popover renderer has mounted + attached its listeners
 let pendingText = null // text captured for a summon not yet delivered to the renderer
 let pendingAccessibility = false // whether that summon's grab was the auto (v1) path
+let pendingMarkdown = false // whether the captured text is Markdown (rich grab — Case 1)
 
 function create() {
   rendererReady = false
@@ -69,9 +70,10 @@ function flush() {
   if (!win || !rendererReady || pendingText === null) return
   const text = pendingText
   const accessibility = pendingAccessibility
+  const markdown = pendingMarkdown
   pendingText = null
   positionAtCursor()
-  win.webContents.send('popover:show', { text, accessibility })
+  win.webContents.send('popover:show', { text, accessibility, markdown })
   win.show()
   win.focus()
 }
@@ -82,10 +84,11 @@ export function markRendererReady() {
   flush()
 }
 
-export function showOverlayAtCursor(text, accessibility) {
+export function showOverlayAtCursor(text, accessibility, markdown) {
   if (!win) create()
   pendingText = text
   pendingAccessibility = Boolean(accessibility)
+  pendingMarkdown = Boolean(markdown)
   flush() // sends now if the renderer is ready; otherwise markRendererReady() will
 }
 
