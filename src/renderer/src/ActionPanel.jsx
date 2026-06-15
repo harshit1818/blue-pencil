@@ -1,6 +1,7 @@
 import { Check, Copy, Loader2, AlertCircle } from 'lucide-react'
 import { font, radius, space } from '@tokens'
 import { useThemeColors } from './useTheme.js'
+import Markdown from './Markdown.jsx'
 
 // Presentational popover card content, shared by the in-app popover (App.jsx)
 // and the hotkey overlay (HotkeyPopover.jsx). No state of its own beyond theme;
@@ -139,17 +140,23 @@ export default function ActionPanel({
                   </button>
                 </div>
               </div>
-              <p
-                style={{
-                  margin: 0,
-                  padding: 14,
-                  font: `400 14.5px/1.65 ${font.serif}`,
-                  whiteSpace: 'pre-wrap',
-                  color: C.ink
-                }}
-              >
-                {result.text}
-              </p>
+              {result.markdown ? (
+                <div style={{ padding: 14 }}>
+                  <Markdown source={result.text} />
+                </div>
+              ) : (
+                <p
+                  style={{
+                    margin: 0,
+                    padding: 14,
+                    font: `400 14.5px/1.65 ${font.serif}`,
+                    whiteSpace: 'pre-wrap',
+                    color: C.ink
+                  }}
+                >
+                  {result.text}
+                </p>
+              )}
               {hint && (
                 <div style={{ padding: '0 14px 12px', font: `400 12px ${font.grotesk}`, color: C.muted }}>
                   {hint}

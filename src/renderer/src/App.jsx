@@ -11,7 +11,8 @@ const ACTIONS = [
   { id: 'proofread', label: 'Proofread' },
   { id: 'improve', label: 'Improve' },
   { id: 'simplify', label: 'Simplify' },
-  { id: 'summarize', label: 'Summarize' }
+  { id: 'summarize', label: 'Summarize' },
+  { id: 'format', label: 'Format' }
 ]
 const TONES = ['Professional', 'Confident', 'Friendly', 'Concise']
 
@@ -145,7 +146,7 @@ export default function App() {
     run(id, async () => {
       const res = await window.api.transform({ text, action: id })
       if (!res?.ok) return showError(res)
-      setResult({ title: res.result.title, text: res.result.text })
+      setResult({ title: res.result.title, text: res.result.text, markdown: res.result.markdown })
       if (res.result.kind === 'proofread') setMarks(res.result.changes || [])
     })
 
@@ -165,7 +166,10 @@ export default function App() {
   }
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(result.text)
+      // Markdown results go through main's rich dual-write so a paste lands
+      // formatted; plain results use the renderer clipboard directly.
+      if (result?.markdown) await window.api?.clipboardWriteResult(result.text, true)
+      else await navigator.clipboard.writeText(result.text)
       setCopied(true)
       setTimeout(() => setCopied(false), 1300)
     } catch {

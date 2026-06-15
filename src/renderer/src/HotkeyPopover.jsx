@@ -13,7 +13,8 @@ const ACTIONS = [
   { id: 'proofread', label: 'Proofread' },
   { id: 'improve', label: 'Improve' },
   { id: 'simplify', label: 'Simplify' },
-  { id: 'summarize', label: 'Summarize' }
+  { id: 'summarize', label: 'Summarize' },
+  { id: 'format', label: 'Format' }
 ]
 const TONES = ['Professional', 'Confident', 'Friendly', 'Concise']
 const HOTKEY_LABEL = "⌘⇧'"
@@ -124,7 +125,7 @@ export default function HotkeyPopover() {
     run(id, async () => {
       const res = await window.api.transform({ text: captured, action: id })
       if (!res?.ok) return showError(res)
-      setResult({ title: res.result.title, text: res.result.text })
+      setResult({ title: res.result.title, text: res.result.text, markdown: res.result.markdown })
       if (res.result.kind === 'proofread') setMarks(res.result.changes || [])
     })
 
@@ -139,11 +140,12 @@ export default function HotkeyPopover() {
   // dismisses). Not granted: v0 behavior — copy to clipboard + "press ⌘V" hint.
   const deliver = async () => {
     if (!result) return
+    const markdown = !!result.markdown
     if (accessibility) {
-      await window.api.pasteBack(result.text)
+      await window.api.pasteBack(result.text, markdown)
       return
     }
-    await window.api.clipboardWrite(result.text)
+    await window.api.clipboardWriteResult(result.text, markdown)
     setCopied(true)
     setHint(COPIED_HINT)
     setTimeout(() => setCopied(false), 1300)
