@@ -1,7 +1,6 @@
 import { execFile } from 'child_process'
 import { clipboard, systemPreferences, shell, app } from 'electron'
-import { mdToHtml, mdToSlack } from './markdown.js'
-import { profileFor } from './profiles.js'
+import { mdToHtml } from './markdown.js'
 
 // v1 "works-now" automation via osascript / System Events — no native addon.
 // Trade-off vs a native module: synthesizing keystrokes this way can trigger a
@@ -49,18 +48,6 @@ async function frontmostApp() {
   }
 }
 
-// Bundle id is the stable key for the delivery profile registry (the process name
-// is localized / display-only). Best-effort: falls back to the name if unavailable.
-async function frontmostBundleId() {
-  try {
-    return await osa(
-      'tell application "System Events" to get bundle identifier of first application process whose frontmost is true'
-    )
-  } catch {
-    return null
-  }
-}
-
 // Snapshot every clipboard flavor we can later restore. text/html/rtf cover the
 // rich-text cases; images and app-specific flavors are out of scope (a copied
 // image is lost during an action — accepted).
@@ -92,7 +79,7 @@ let pending = null // { savedClipboard, frontApp, bundleId }
 // (all flavors) + source app so we can paste back and restore afterwards.
 export async function grabSelection() {
   const savedClipboard = snapshotClipboard()
-  const [frontApp, bundleId] = await Promise.all([frontmostApp(), frontmostBundleId()])
+  const frontApp = await frontmostApp()
   clipboard.writeText('') // sentinel: empty means ⌘C copied nothing
   try {
     await keyCmd('c')
@@ -110,24 +97,20 @@ export async function grabSelection() {
     }
     await sleep(10) // ~400ms cap total — deterministic, no fixed guess
   }
-  pending = { savedClipboard, frontApp, bundleId }
+  pending = { savedClipboard, frontApp }
   return selection
 }
 
-// Put the result on the clipboard in the form the destination wants. Plain results
-// (markdown:false) keep today's behavior; markdown results are converted per the
-// target app's profile — see profiles.js. Falls back to rich (dual html+text) when
-// the source app is unknown.
-function writeResult(text, markdown, stash) {
+// A Markdown result is always delivered as rich text — the rendered HTML — with
+// the Markdown source as the plain-text fallback flavor. Rich editors (Slack's
+// default composer, Gmail, Notion, Mail, Notes, Word...) read the HTML and apply
+// the formatting on paste; plain-only targets (terminals) read the readable
+// Markdown. One write covers both, so there is no per-app registry. Plain results
+// keep today's text-only write. See docs/phase2/rich-text-format-action.md.
+function writeResult(text, markdown) {
   const value = text ?? ''
-  if (!markdown) {
-    clipboard.writeText(value)
-    return
-  }
-  const profile = profileFor(stash?.bundleId, stash?.frontApp)
-  if (profile === 'mrkdwn') clipboard.writeText(mdToSlack(value))
-  else if (profile === 'plain') clipboard.writeText(value)
-  else clipboard.write({ html: mdToHtml(value), text: value }) // rich (default)
+  if (markdown) clipboard.write({ html: mdToHtml(value), text: value })
+  else clipboard.writeText(value)
 }
 
 // v1 DELIVER seam — write the result, reactivate the source app, paste it, then
@@ -135,7 +118,7 @@ function writeResult(text, markdown, stash) {
 export async function pasteBack(text, { markdown = false } = {}) {
   const stash = pending
   pending = null
-  writeResult(text, markdown, stash)
+  writeResult(text, markdown)
   try {
     if (stash?.frontApp) {
       const name = String(stash.frontApp).replace(/"/g, '\\"')
@@ -151,10 +134,9 @@ export async function pasteBack(text, { markdown = false } = {}) {
   }
 }
 
-// Copy-mode delivery (Accessibility off): no source app was captured, so a
-// markdown result uses the rich dual-write (html + readable md fallback).
+// Copy-mode delivery (Accessibility off): same universal dual-write.
 export function writeResultToClipboard(text, markdown = false) {
-  writeResult(text, markdown, null)
+  writeResult(text, markdown)
 }
 
 // If a grab happened but the popover was dismissed without pasting, put the
