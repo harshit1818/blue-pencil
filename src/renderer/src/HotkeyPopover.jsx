@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { Copy, CornerDownLeft } from 'lucide-react'
 import { font, radius } from '@tokens'
 import ActionPanel from './ActionPanel.jsx'
+import Markdown from './Markdown.jsx'
 import { useThemeColors } from './useTheme.js'
 
 // The hotkey overlay's container: a read-only preview of the grabbed text plus
@@ -26,6 +27,7 @@ const COPIED_HINT = 'Copied — press ⌘V in your app.'
 export default function HotkeyPopover() {
   const C = useThemeColors()
   const [captured, setCaptured] = useState('')
+  const [capturedMarkdown, setCapturedMarkdown] = useState(false)
   const [accessibility, setAccessibility] = useState(false)
   const [providers, setProviders] = useState([])
   const [provider, setProvider] = useState('')
@@ -47,8 +49,9 @@ export default function HotkeyPopover() {
     const applySettings = (s) => {
       if (s) setProvider(s.provider || '')
     }
-    const unsubShow = window.api?.onPopoverShow?.(({ text, accessibility: a }) => {
+    const unsubShow = window.api?.onPopoverShow?.(({ text, accessibility: a, markdown: m }) => {
       setCaptured(text || '')
+      setCapturedMarkdown(Boolean(m))
       setAccessibility(Boolean(a))
       setBusy(null)
       setError(null)
@@ -123,7 +126,7 @@ export default function HotkeyPopover() {
 
   const doAction = (id) =>
     run(id, async () => {
-      const res = await window.api.transform({ text: captured, action: id })
+      const res = await window.api.transform({ text: captured, action: id, markdown: capturedMarkdown })
       if (!res?.ok) return showError(res)
       setResult({ title: res.result.title, text: res.result.text, markdown: res.result.markdown })
       if (res.result.kind === 'proofread') setMarks(res.result.changes || [])
@@ -131,9 +134,14 @@ export default function HotkeyPopover() {
 
   const reTone = (t) =>
     run('tone-' + t, async () => {
-      const res = await window.api.transform({ text: captured, action: 'tone', tone: t })
+      const res = await window.api.transform({
+        text: captured,
+        action: 'tone',
+        tone: t,
+        markdown: capturedMarkdown
+      })
       if (!res?.ok) return showError(res)
-      setResult({ title: res.result.title, text: res.result.text })
+      setResult({ title: res.result.title, text: res.result.text, markdown: res.result.markdown })
     })
 
   // v1 DELIVER seam. Granted: paste back into the source app (main does it, then
@@ -215,20 +223,26 @@ export default function HotkeyPopover() {
         </div>
       ) : (
         <>
-          {/* read-only preview of the grabbed text */}
+          {/* read-only preview of the grabbed text — rendered when it's a rich (Markdown) grab */}
           <div style={{ padding: '11px 14px', borderBottom: `1px solid ${C.line}`, background: C.paper }}>
-            <div
-              style={{
-                font: `400 12.5px/1.5 ${font.serif}`,
-                color: C.ink,
-                display: '-webkit-box',
-                WebkitLineClamp: 3,
-                WebkitBoxOrient: 'vertical',
-                overflow: 'hidden'
-              }}
-            >
-              {captured}
-            </div>
+            {capturedMarkdown ? (
+              <div style={{ maxHeight: 72, overflow: 'hidden' }}>
+                <Markdown source={captured} />
+              </div>
+            ) : (
+              <div
+                style={{
+                  font: `400 12.5px/1.5 ${font.serif}`,
+                  color: C.ink,
+                  display: '-webkit-box',
+                  WebkitLineClamp: 3,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden'
+                }}
+              >
+                {captured}
+              </div>
+            )}
             <div style={{ font: `400 10px ${font.mono}`, color: C.muted, marginTop: 4 }}>{words} words</div>
           </div>
 
