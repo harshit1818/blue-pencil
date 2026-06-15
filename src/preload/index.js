@@ -25,7 +25,9 @@ const api = {
   popoverResize: (w, h) => ipcRenderer.send('popover:resize', w, h),
   popoverDismiss: () => ipcRenderer.send('popover:dismiss'),
   clipboardWrite: (text) => ipcRenderer.invoke('clipboard:write', text),
-  pasteBack: (text) => ipcRenderer.invoke('hotkey:pasteBack', text),
+  clipboardWriteResult: (text, markdown) =>
+    ipcRenderer.invoke('clipboard:writeResult', text, markdown),
+  pasteBack: (text, markdown) => ipcRenderer.invoke('hotkey:pasteBack', text, markdown),
   requestAccessibility: () => ipcRenderer.invoke('accessibility:request'),
   openAccessibilitySettings: () => ipcRenderer.send('accessibility:openSettings'),
   relaunchApp: () => ipcRenderer.send('accessibility:relaunch')

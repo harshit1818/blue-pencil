@@ -8,7 +8,13 @@ import { setProviderId, setModelId } from './settings.js'
 import { hasApiKey, setApiKey, seedFromEnv } from './keychain.js'
 import { registerHotkey, unregisterHotkey } from './hotkey.js'
 import { resizeOverlay, hideOverlay, markRendererReady } from './overlay.js'
-import { pasteBack, requestAccessibility, openAccessibilitySettings, relaunchApp } from './automation.js'
+import {
+  pasteBack,
+  writeResultToClipboard,
+  requestAccessibility,
+  openAccessibilitySettings,
+  relaunchApp
+} from './automation.js'
 
 const HOTKEY_LABEL = "⌘⇧'"
 
@@ -171,10 +177,15 @@ app.whenReady().then(async () => {
   ipcMain.on('popover:resize', (_event, w, h) => resizeOverlay(w, h))
   ipcMain.on('popover:dismiss', () => hideOverlay())
   ipcMain.handle('clipboard:write', (_event, text) => clipboard.writeText(text ?? ''))
+  // Copy-mode deliver: markdown results get the rich dual-write so a paste lands
+  // formatted in most apps (plain text fallback for the rest).
+  ipcMain.handle('clipboard:writeResult', (_event, text, markdown) =>
+    writeResultToClipboard(text, markdown)
+  )
 
   // v1 deliver seam (granted): paste the result into the source app, then dismiss.
-  ipcMain.handle('hotkey:pasteBack', async (_event, text) => {
-    await pasteBack(text)
+  ipcMain.handle('hotkey:pasteBack', async (_event, text, markdown) => {
+    await pasteBack(text, { markdown })
     hideOverlay()
   })
   ipcMain.handle('accessibility:request', () => requestAccessibility())

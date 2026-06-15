@@ -1,5 +1,7 @@
 import { execFile } from 'child_process'
 import { clipboard, systemPreferences, shell, app } from 'electron'
+import { mdToHtml, mdToSlack } from './markdown.js'
+import { profileFor } from './profiles.js'
 
 // v1 "works-now" automation via osascript / System Events — no native addon.
 // Trade-off vs a native module: synthesizing keystrokes this way can trigger a
@@ -112,12 +114,28 @@ export async function grabSelection() {
   return selection
 }
 
+// Put the result on the clipboard in the form the destination wants. Plain results
+// (markdown:false) keep today's behavior; markdown results are converted per the
+// target app's profile — see profiles.js. Falls back to rich (dual html+text) when
+// the source app is unknown.
+function writeResult(text, markdown, stash) {
+  const value = text ?? ''
+  if (!markdown) {
+    clipboard.writeText(value)
+    return
+  }
+  const profile = profileFor(stash?.bundleId, stash?.frontApp)
+  if (profile === 'mrkdwn') clipboard.writeText(mdToSlack(value))
+  else if (profile === 'plain') clipboard.writeText(value)
+  else clipboard.write({ html: mdToHtml(value), text: value }) // rich (default)
+}
+
 // v1 DELIVER seam — write the result, reactivate the source app, paste it, then
 // restore the user's original clipboard.
-export async function pasteBack(text) {
+export async function pasteBack(text, { markdown = false } = {}) {
   const stash = pending
   pending = null
-  clipboard.writeText(text ?? '')
+  writeResult(text, markdown, stash)
   try {
     if (stash?.frontApp) {
       const name = String(stash.frontApp).replace(/"/g, '\\"')
@@ -131,6 +149,12 @@ export async function pasteBack(text) {
   } finally {
     if (stash) restoreClipboard(stash.savedClipboard)
   }
+}
+
+// Copy-mode delivery (Accessibility off): no source app was captured, so a
+// markdown result uses the rich dual-write (html + readable md fallback).
+export function writeResultToClipboard(text, markdown = false) {
+  writeResult(text, markdown, null)
 }
 
 // If a grab happened but the popover was dismissed without pasting, put the
