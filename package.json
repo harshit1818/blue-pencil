@@ -20,7 +20,8 @@
     "keytar": "^7.9.0",
     "lucide-react": "^0.460.0",
     "marked": "^18.0.5",
-    "openai": "^4.77.0"
+    "openai": "^4.77.0",
+    "turndown": "^7.2.4"
   },
   "devDependencies": {
     "@electron/rebuild": "^3.7.0",
