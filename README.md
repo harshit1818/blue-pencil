@@ -3,7 +3,7 @@
 A personal macOS writing assistant — a single writing surface with a floating
 assistant that opens on click, anchored to the text box. On-demand proofreading,
 rewriting, tone adjustment, and summarization, powered by an LLM you supply the
-key for.
+key for. 
 
 This is the **Phase 1** scaffold per [`DESIGN.md`](./docs/DESIGN.md): an Electron shell
 wrapping the renderer prototype, with the API key held in the macOS Keychain and
