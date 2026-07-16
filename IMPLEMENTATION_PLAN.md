@@ -99,7 +99,10 @@ Regenerate the GH block below: `bash loop.sh plan` (see PROMPT_plan.md).
       navigation classifier — one definition of "our own page"; pasteBack also
       requires the overlay to be visible. Pure fn + fake-ipcMain wiring test in
       test/ipc-guard.test.mjs.)
-- [ ] #40 E4  osascript escaping misses backslashes             · sev:low      · v:auto
+- [x] #40 E4  osascript escaping misses backslashes             · sev:low      · v:auto
+      (pure `escapeOsaString` in src/main/osa-escape.js escapes `\` before `"`;
+      automation.js pasteBack uses it. test/osa-escape.test.mjs proves the
+      trailing-backslash breakout repro from the issue.)
 
 ## Ungrouped
 
