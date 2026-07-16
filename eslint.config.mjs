@@ -7,7 +7,7 @@ export default [
   { ignores: ['out/**', 'dist/**', 'node_modules/**', 'build/**'] },
   js.configs.recommended,
   {
-    files: ['src/**/*.js', 'src/**/*.jsx', 'test/**/*.mjs'],
+    files: ['src/**/*.js', 'src/**/*.jsx', 'test/**/*.mjs', 'scripts/**/*.mjs'],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'module',

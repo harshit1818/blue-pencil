@@ -10,7 +10,7 @@
     "test": "node --test",
     "typecheck": "tsc -p tsconfig.json",
     "lint": "eslint .",
-    "verify": "npm run typecheck && npm run lint && npm test && npm run build",
+    "verify": "npm run typecheck && npm run lint && node scripts/secret-scan.mjs && npm test && npm run build",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "rebuild": "electron-rebuild -f -w keytar",
