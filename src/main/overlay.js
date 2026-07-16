@@ -1,6 +1,7 @@
 import { BrowserWindow, screen } from 'electron'
 import { join } from 'path'
 import { restoreClipboardIfPending } from './automation.js'
+import { log } from './log.js'
 
 // A single reused, frameless, transparent, always-on-top popover window shown
 // near the cursor on hotkey. Created lazily and hidden (not destroyed) between
@@ -51,7 +52,9 @@ function create() {
 
 function positionAtCursor() {
   const pt = screen.getCursorScreenPoint()
-  const { workArea } = screen.getDisplayNearestPoint(pt)
+  const display = screen.getDisplayNearestPoint(pt)
+  const { workArea } = display
+  log(`positionAtCursor cursor=(${pt.x},${pt.y}) display=${display.id} workArea=${workArea.x},${workArea.y},${workArea.width}x${workArea.height}`)
   const [w, h] = win.getSize()
   let x = pt.x + 12
   let y = pt.y + 12
@@ -74,8 +77,14 @@ function flush() {
   pendingText = null
   positionAtCursor()
   win.webContents.send('popover:show', { text, accessibility, markdown })
-  win.show()
+  // showInactive() shows without activating the app, so summoning the overlay
+  // doesn't pull the active Space to another display (the "opens on the other
+  // screen, no overlay over fullscreen" bug). focus() then gives it key focus so
+  // Escape/typing work. See docs/phase2/menu-bar-app.md.
+  win.showInactive()
   win.focus()
+  const [x, y] = win.getPosition()
+  log(`flush shown at (${x},${y}) on display=${screen.getDisplayMatching(win.getBounds()).id}`)
 }
 
 // Called (over IPC) when the popover renderer has mounted and attached listeners.
@@ -85,6 +94,7 @@ export function markRendererReady() {
 }
 
 export function showOverlayAtCursor(text, accessibility, markdown) {
+  log(`showOverlayAtCursor (winExists=${Boolean(win)}, rendererReady=${rendererReady})`)
   if (!win) create()
   pendingText = text
   pendingAccessibility = Boolean(accessibility)
