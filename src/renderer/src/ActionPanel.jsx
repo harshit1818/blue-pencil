@@ -62,7 +62,7 @@ export default function ActionPanel({
         Assistant · {providerLabel}
       </div>
 
-      <div style={{ padding: space.md }}>
+      <div style={{ padding: space.md }} aria-busy={!!busy}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
           {actions.map((a) => (
             <button
@@ -98,6 +98,7 @@ export default function ActionPanel({
         <div style={{ borderTop: `1px solid ${C.line}`, maxHeight: 280, overflowY: 'auto' }}>
           {error && (
             <div
+              role="alert"
               style={{
                 display: 'flex',
                 gap: 7,
@@ -111,7 +112,7 @@ export default function ActionPanel({
             </div>
           )}
           {result && (
-            <div>
+            <div role="status" aria-live="polite">
               <div
                 style={{
                   display: 'flex',

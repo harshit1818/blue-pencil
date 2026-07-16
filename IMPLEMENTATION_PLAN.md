@@ -63,7 +63,10 @@ Regenerate the GH block below: `bash loop.sh plan` (see PROMPT_plan.md).
       badge open state — white on dark-mode ink was 1.15:1, now paper on ink.
       test/tokens-contrast.test.mjs guards ratios + bans '#fff' in renderer.)
 - [ ] #25 C2  disabled buttons don't look disabled               · sev:medium   · v:human
-- [ ] #26 C3  no aria-live on result/error; no aria-busy         · sev:medium   · v:auto
+- [x] #26 C3  no aria-live on result/error; no aria-busy         · sev:medium   · v:auto
+      (all in shared ActionPanel so both hosts get it: role="alert" on the error
+      row, role="status"+aria-live="polite" on the result container, aria-busy
+      on the controls block. test/aria-live.test.mjs guards statically.)
 - [ ] #27 C4  unlabeled inputs (key, model, textarea)            · sev:medium   · v:auto
 - [ ] #28 C5  no focus management when the overlay appears       · sev:medium   · v:human
 - [ ] #30 C7  reduced-motion strips all transitions, no fallback · sev:low      · v:human
