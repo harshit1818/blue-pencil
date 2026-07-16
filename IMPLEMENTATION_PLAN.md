@@ -52,6 +52,7 @@ Regenerate the GH block below: `bash loop.sh plan` (see PROMPT_plan.md).
 - [ ] #20 B6  model-input echo clobbers fast typing              · sev:low      · v:human
 - [x] #21 B7  overlay result not invalidated on provider change  · sev:low      · v:auto
 - [ ] #22 B8  refactor: shared useTransform hook + constants     · sev:—        · v:human
+- [ ] #42 B9  in-flight result lands after provider switch       · sev:low      · v:auto
 
 ## C — Accessibility & user feedback (#23)
 
