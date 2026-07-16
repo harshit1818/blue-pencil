@@ -4,6 +4,7 @@ import { font, radius, shadow, space } from '@tokens'
 import ActionPanel from './ActionPanel.jsx'
 import { useThemeColors } from './useTheme.js'
 import { loadDraft, saveDraft } from './draft.js'
+import { panelResult } from './result.js'
 
 // All visual values come from src/shared/tokens.js — nothing is hardcoded here.
 
@@ -156,7 +157,7 @@ export default function App() {
     run(id, async () => {
       const res = await window.api.transform({ text, action: id })
       if (!res?.ok) return showError(res)
-      setResult({ title: res.result.title, text: res.result.text, markdown: res.result.markdown })
+      setResult(panelResult(res.result))
       if (res.result.kind === 'proofread') setMarks(res.result.changes || [])
     })
 
@@ -164,7 +165,7 @@ export default function App() {
     run('tone-' + t, async () => {
       const res = await window.api.transform({ text, action: 'tone', tone: t })
       if (!res?.ok) return showError(res)
-      setResult({ title: res.result.title, text: res.result.text })
+      setResult(panelResult(res.result))
     })
 
   const apply = () => {

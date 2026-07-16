@@ -4,6 +4,7 @@ import { font, radius } from '@tokens'
 import ActionPanel from './ActionPanel.jsx'
 import Markdown from './Markdown.jsx'
 import { useThemeColors } from './useTheme.js'
+import { panelResult } from './result.js'
 
 // The hotkey overlay's container: a read-only preview of the grabbed text plus
 // the shared ActionPanel. Floats over other apps; the active provider comes from
@@ -132,7 +133,7 @@ export default function HotkeyPopover() {
     run(id, async () => {
       const res = await window.api.transform({ text: captured, action: id, markdown: capturedMarkdown })
       if (!res?.ok) return showError(res)
-      setResult({ title: res.result.title, text: res.result.text, markdown: res.result.markdown })
+      setResult(panelResult(res.result))
       if (res.result.kind === 'proofread') setMarks(res.result.changes || [])
     })
 
@@ -145,7 +146,7 @@ export default function HotkeyPopover() {
         markdown: capturedMarkdown
       })
       if (!res?.ok) return showError(res)
-      setResult({ title: res.result.title, text: res.result.text, markdown: res.result.markdown })
+      setResult(panelResult(res.result))
     })
 
   // v1 DELIVER seam. Granted: paste back into the source app (main does it, then
