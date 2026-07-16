@@ -26,8 +26,19 @@ rm -f .loop/DONE
 stall=0
 
 for i in $(seq 1 "$MAX_ITERS"); do
+  # Deterministic end: in build mode, stop the moment no actionable cards remain.
+  # v:human cards stay on the board forever, so "board clear" means no [ ] v:auto
+  # cards — not an empty board. This guarantees the loop terminates.
+  if [ "$MODE" = build ]; then
+    todo=$(grep -cE '^- \[ \].*v:auto' IMPLEMENTATION_PLAN.md || true)
+    if [ "${todo:-0}" -eq 0 ]; then
+      echo "=== ralph: no [ ] v:auto cards left — board clear, stopping. ===" | tee -a .loop/loop.log
+      exit 0
+    fi
+  fi
+
   before="$(git rev-parse HEAD)"
-  echo "=== ralph $MODE iteration $i/$MAX_ITERS (model=$MODEL, stall=$stall) ===" | tee -a .loop/loop.log
+  echo "=== ralph $MODE iteration $i/$MAX_ITERS (${todo:-?} v:auto todo, model=$MODEL, stall=$stall) ===" | tee -a .loop/loop.log
 
   cat "$PROMPT_FILE" | claude -p --dangerously-skip-permissions --model "$MODEL" 2>&1 \
     | tee -a .loop/loop.log
