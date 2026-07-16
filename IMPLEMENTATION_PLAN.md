@@ -53,7 +53,7 @@ Regenerate the GH block below: `bash loop.sh plan` (see PROMPT_plan.md).
 - [x] #21 B7  overlay result not invalidated on provider change  · sev:low      · v:auto
 - [ ] #22 B8  refactor: shared useTransform hook + constants     · sev:—        · v:human
 - [x] #42 B9  in-flight result lands after provider switch       · sev:low      · v:auto
-- [ ] #43 B10 in-flight result lands after fresh hotkey summon   · sev:low      · v:auto
+- [x] #43 B10 in-flight result lands after fresh hotkey summon   · sev:low      · v:auto
 
 ## C — Accessibility & user feedback (#23)
 

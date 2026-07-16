@@ -61,3 +61,16 @@ test('a run stamped after the switch stays fresh', () => {
   const fresh = stampRun(gen)
   assert.equal(fresh(), true)
 })
+
+// #43: sibling of #42 — the overlay's show-reset now routes through clearPanel,
+// so a re-summon bumps the generation (dropping runs from the previous summon)
+// and clears the overlay-only busy flag in the same shared rule.
+
+test('the show-reset drops busy and stales runs from the previous summon', () => {
+  const gen = { current: 0 }
+  const calls = {}
+  const fresh = stampRun(gen)
+  clearPanel({ ...noopSet(gen), busy: (v) => (calls.busy = v) })
+  assert.equal(calls.busy, null)
+  assert.equal(fresh(), false)
+})

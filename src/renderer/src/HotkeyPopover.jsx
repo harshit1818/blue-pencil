@@ -55,16 +55,22 @@ export default function HotkeyPopover() {
     const applySettings = (s) => {
       if (s) setProvider(s.provider || '')
     }
+    // #43: sibling of #42 — the show-reset routes through clearPanel so it also
+    // bumps the run generation; a transform still pending from the previous
+    // summon reads stale and its result never lands under the new capture.
     const unsubShow = window.api?.onPopoverShow?.(({ text, accessibility: a, markdown: m }) => {
       setCaptured(text || '')
       setCapturedMarkdown(Boolean(m))
       setAccessibility(Boolean(a))
-      setBusy(null)
-      setError(null)
-      setResult(null)
-      setMarks(null)
-      setCopied(false)
-      setHint(null)
+      clearPanel({
+        result: setResult,
+        marks: setMarks,
+        error: setError,
+        copied: setCopied,
+        hint: setHint,
+        busy: setBusy,
+        gen: runGen
+      })
       setNeedsRestart(false)
     })
     const unsubSettings = window.api?.onSettingsChanged?.(applySettings)
