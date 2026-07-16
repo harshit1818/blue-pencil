@@ -10,6 +10,7 @@ export const color = {
     line: "#e7e2d6",       // borders, dividers
     muted: "#6f6a5f",      // captions, secondary text
     pencil: "#1f5fa8",     // primary accent — the blue pencil
+    onPencil: "#ffffff",   // text/icons on pencil fills (6.44:1)
     pencilSoft: "#eaf1fa", // active fills
     mark: "#c2453d",       // corrections only
     markSoft: "#fbecea",   // correction background
@@ -21,6 +22,7 @@ export const color = {
     line: "#33353d",
     muted: "#9b958a",
     pencil: "#6ba4e6",     // lifted for contrast on dark
+    onPencil: "#16171b",   // dark ink on lifted pencil (6.89:1); white was 2.60:1
     pencilSoft: "#1e2b3d",
     mark: "#e07a72",
     markSoft: "#2e2120",

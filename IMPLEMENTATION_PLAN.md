@@ -58,7 +58,10 @@ Regenerate the GH block below: `bash loop.sh plan` (see PROMPT_plan.md).
 ## C — Accessibility & user feedback (#23)
 
 - [ ] #24 C1  loading spinner never spins                        · sev:high     · v:human
-- [ ] #29 C6  dark theme contrast 2.60:1 fails WCAG AA           · sev:high     · v:auto
+- [x] #29 C6  dark theme contrast 2.60:1 fails WCAG AA           · sev:high     · v:auto
+      (per-theme `onPencil` token replaces all '#fff' literals; also fixed the
+      badge open state — white on dark-mode ink was 1.15:1, now paper on ink.
+      test/tokens-contrast.test.mjs guards ratios + bans '#fff' in renderer.)
 - [ ] #25 C2  disabled buttons don't look disabled               · sev:medium   · v:human
 - [ ] #26 C3  no aria-live on result/error; no aria-busy         · sev:medium   · v:auto
 - [ ] #27 C4  unlabeled inputs (key, model, textarea)            · sev:medium   · v:auto

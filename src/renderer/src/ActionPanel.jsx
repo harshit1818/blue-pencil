@@ -32,7 +32,7 @@ export default function ActionPanel({
     cursor: 'pointer',
     border: `1px solid ${isPrimary || active ? C.pencil : C.line}`,
     background: isPrimary ? C.pencil : active ? C.pencilSoft : C.panel,
-    color: isPrimary ? '#fff' : active ? C.pencil : C.ink,
+    color: isPrimary ? C.onPencil : active ? C.pencil : C.ink,
     display: 'inline-flex',
     alignItems: 'center',
     gap: 6,
