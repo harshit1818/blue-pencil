@@ -58,6 +58,14 @@ test('format sends the structure instruction and always returns markdown:true', 
   assert.deepEqual(res, { kind: 'rewrite', title: 'Format', text: '## out', markdown: true })
 })
 
+test('format prompt forbids collapsing existing bullet lists into prose (#3)', async () => {
+  const { calls, call } = mock('out')
+  await transform({ text: '• 14:02 alerts fire\n• 14:10 rolled back', action: 'format' }, call)
+  assert.match(calls[0], /Never collapse existing list items into a prose sentence/)
+  assert.match(calls[0], /lines starting with -, \*, •, or a number/)
+  assert.match(calls[0], /Only create a NEW bullet or numbered list/)
+})
+
 test('tone requires a tone and titles the result with it', async () => {
   const { calls, call } = mock('out')
   await assert.rejects(transform({ text: 'hi', action: 'tone' }, call), /No tone specified/)

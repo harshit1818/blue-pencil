@@ -113,7 +113,12 @@ Regenerate the GH block below: `bash loop.sh plan` (see PROMPT_plan.md).
       test/markdown.test.mjs. Suspect 1 — model omitting the blank line —
       needs live eyeballs: follow-up #44, v:human.)
 - [ ] #44 Confirm Format paragraph gaps survive live Slack paste · bug         · v:human
-- [ ] #3  Format flattens bullet lists into prose               · bug          · v:auto
+- [x] #3  Format flattens bullet lists into prose               · bug          · v:auto
+      (Prompt-level per the issue: FORMAT_INSTRUCTION now treats any existing
+      list marker (-, *, •, numbered) as a genuine enumeration — never collapse
+      into prose; the "genuine enumeration" judgment applies only to creating
+      NEW lists. Prompt-shape test in test/transform.test.mjs. Live Slack
+      confirmation rides on #44, v:human.)
 - [ ] #2  Format shreds bare multi-line code into inline frags  · bug          · v:auto
 - [ ] #5  Format: deliberate auto-inline-code & Slack headers   · enhancement  · v:auto
 - [ ] #1  Overlay cursor-anchored, clipped near screen edges    · —            · v:human

@@ -56,7 +56,10 @@ const FORMAT_INSTRUCTION =
   'not add, remove, or reorder information.\n' +
   '- Keep related sentences together in one paragraph; separate blocks with a blank ' +
   'line. Do not put every sentence on its own line.\n' +
-  '- Use a bullet or numbered list ONLY for a genuine enumeration of items.\n' +
+  '- If the text already contains a list (lines starting with -, *, •, or a number), it ' +
+  'IS a genuine enumeration: keep every item on its own line as a Markdown list. Never ' +
+  'collapse existing list items into a prose sentence.\n' +
+  '- Only create a NEW bullet or numbered list for a genuine enumeration of items.\n' +
   '- Use inline code for commands, identifiers, file paths and env vars; fenced code ' +
   'blocks for multi-line code.\n' +
   '- Use **bold** sparingly for real emphasis. Do NOT invent a heading unless the text ' +
