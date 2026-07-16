@@ -67,7 +67,9 @@ Regenerate the GH block below: `bash loop.sh plan` (see PROMPT_plan.md).
       (all in shared ActionPanel so both hosts get it: role="alert" on the error
       row, role="status"+aria-live="polite" on the result container, aria-busy
       on the controls block. test/aria-live.test.mjs guards statically.)
-- [ ] #27 C4  unlabeled inputs (key, model, textarea)            · sev:medium   · v:auto
+- [x] #27 C4  unlabeled inputs (key, model, textarea)            · sev:medium   · v:auto
+      (aria-label on key input + textarea; Model span became <label htmlFor>.
+      test/input-labels.test.mjs guards statically.)
 - [ ] #28 C5  no focus management when the overlay appears       · sev:medium   · v:human
 - [ ] #30 C7  reduced-motion strips all transitions, no fallback · sev:low      · v:human
 

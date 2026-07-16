@@ -342,6 +342,7 @@ export default function App() {
                   onChange={(e) => setKeyDraft(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && saveKey()}
                   placeholder={hasKey ? `Replace ${providerLabel} key…` : `${providerLabel} API key…`}
+                  aria-label={`${providerLabel} API key`}
                   style={fieldStyle}
                 />
                 <button style={pill(false, true)} onClick={saveKey} disabled={!keyDraft.trim()}>
@@ -349,8 +350,11 @@ export default function App() {
                 </button>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: space.sm }}>
-                <span style={{ ...sectionLabel, whiteSpace: 'nowrap' }}>Model</span>
+                <label htmlFor="model-id" style={{ ...sectionLabel, whiteSpace: 'nowrap' }}>
+                  Model
+                </label>
                 <input
+                  id="model-id"
                   value={models[provider] || ''}
                   onChange={(e) => setModel(provider, e.target.value)}
                   placeholder="model id"
@@ -378,6 +382,7 @@ export default function App() {
                 }
               }}
               placeholder="Write here…"
+              aria-label="Writing surface"
               style={{
                 width: '100%',
                 minHeight: 300,
