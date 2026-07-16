@@ -86,7 +86,12 @@ Regenerate the GH block below: `bash loop.sh plan` (see PROMPT_plan.md).
 
 ## E — Security hardening (#36)
 
-- [ ] #37 E1  no will-navigate / window-open guard on overlay   · sev:high     · v:auto
+- [x] #37 E1  no will-navigate / window-open guard on overlay   · sev:high     · v:auto
+      (app-wide `web-contents-created` hook in src/main/navigation-guard.js:
+      will-navigate allowed only to the dev origin / file: under appRoot,
+      http(s) routed to shell.openExternal, all else denied; window.open denied
+      everywhere. Replaces the main-window-only handler. Pure classify fn +
+      fake-electron wiring test in test/navigation-guard.test.mjs.)
 - [ ] #38 E2  sandbox:false on both BrowserWindows              · sev:medium   · v:human
 - [ ] #39 E3  IPC endpoints lack sender/gesture validation      · sev:low      · v:auto
 - [ ] #40 E4  osascript escaping misses backslashes             · sev:low      · v:auto

@@ -4,6 +4,7 @@ import { readFileSync, writeFileSync } from 'fs'
 import { color } from '@tokens'
 import { transform } from './transform.js'
 import { validBounds } from './window-bounds.js'
+import { installNavigationGuards } from './navigation-guard.js'
 import { listProviders, effectiveSettings, isValidProvider } from './providers.js'
 import { setProviderId, setModelId } from './settings.js'
 import { hasApiKey, setApiKey, seedFromEnv } from './keychain.js'
@@ -21,6 +22,13 @@ const HOTKEY_LABEL = "⌘⇧'"
 
 let mainWindow = null
 let tray = null
+
+// Guard every window (main + overlay) before any is created: in-page links in
+// model output must never top-level-navigate a window that carries window.api.
+installNavigationGuards(app, shell, {
+  devOrigin: process.env.ELECTRON_RENDERER_URL || null,
+  appRoot: join(__dirname, '..')
+})
 
 function broadcastSettings() {
   const snapshot = effectiveSettings()
@@ -78,11 +86,6 @@ function createWindow() {
       e.preventDefault()
       mainWindow.hide()
     }
-  })
-
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url)
-    return { action: 'deny' }
   })
 
   if (process.env.ELECTRON_RENDERER_URL) {
