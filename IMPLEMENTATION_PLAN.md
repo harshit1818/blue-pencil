@@ -45,7 +45,7 @@ Regenerate the GH block below: `bash loop.sh plan` (see PROMPT_plan.md).
 ## B — Renderer state & architecture (#14)
 
 - [ ] #15 B1  ~130 lines duplicated between App & HotkeyPopover  · sev:medium   · v:human
-- [ ] #17 B3  demo lorem seed; user text lost on restart         · sev:medium   · v:auto
+- [x] #17 B3  demo lorem seed; user text lost on restart         · sev:medium   · v:auto
 - [ ] #18 B4  overlay Enter double-fires against focused buttons · sev:medium   · v:human
 - [ ] #16 B2  reTone drops the result markdown flag              · sev:low      · v:auto
 - [ ] #19 B5  stale shortcut comment + undiscoverable number keys· sev:low      · v:human

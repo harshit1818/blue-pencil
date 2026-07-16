@@ -3,6 +3,7 @@ import { PenLine, X, CornerDownLeft, KeyRound, Copy } from 'lucide-react'
 import { font, radius, shadow, space } from '@tokens'
 import ActionPanel from './ActionPanel.jsx'
 import { useThemeColors } from './useTheme.js'
+import { loadDraft, saveDraft } from './draft.js'
 
 // All visual values come from src/shared/tokens.js — nothing is hardcoded here.
 
@@ -25,9 +26,7 @@ const ERROR_NO_KEY = 'Add the key above to get started.'
 
 export default function App() {
   const C = useThemeColors()
-  const [text, setText] = useState(
-    'i thinks the new featrue is realy usefull but the way its implemented have some issue that we should to discuss before shiping it.'
-  )
+  const [text, setText] = useState(() => loadDraft(localStorage))
   const [providers, setProviders] = useState([])
   const [provider, setProvider] = useState('')
   const [models, setModels] = useState({})
@@ -41,6 +40,11 @@ export default function App() {
   const [showKeys, setShowKeys] = useState(false)
   const [keyDraft, setKeyDraft] = useState('')
   const wrapRef = useRef(null)
+
+  // Persist the draft so quit/relaunch (and the A3/A4 Restart path) keeps it.
+  useEffect(() => {
+    saveDraft(localStorage, text)
+  }, [text])
 
   const words = text.trim() ? text.trim().split(/\s+/).length : 0
   const providerLabel = providers.find((p) => p.id === provider)?.label || provider
