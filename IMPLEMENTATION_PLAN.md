@@ -106,7 +106,13 @@ Regenerate the GH block below: `bash loop.sh plan` (see PROMPT_plan.md).
 
 ## Ungrouped
 
-- [ ] #4  Format loses blank lines / paragraph breaks           · bug          · v:auto
+- [x] #4  Format loses blank lines / paragraph breaks           · bug          · v:auto
+      (Slack collapses adjacent <p> blocks to one newline on paste. New
+      mdToClipboardHtml merges p→p boundaries into explicit <br><br> at the
+      deliver seam only; automation.js writeResult uses it. Tests in
+      test/markdown.test.mjs. Suspect 1 — model omitting the blank line —
+      needs live eyeballs: follow-up #44, v:human.)
+- [ ] #44 Confirm Format paragraph gaps survive live Slack paste · bug         · v:human
 - [ ] #3  Format flattens bullet lists into prose               · bug          · v:auto
 - [ ] #2  Format shreds bare multi-line code into inline frags  · bug          · v:auto
 - [ ] #5  Format: deliberate auto-inline-code & Slack headers   · enhancement  · v:auto

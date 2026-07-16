@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mdToHtml, htmlToMd, unwrapModelText } from '../src/main/markdown.js'
+import { mdToHtml, mdToClipboardHtml, htmlToMd, unwrapModelText } from '../src/main/markdown.js'
 
 test('mdToHtml renders structure', () => {
   const html = mdToHtml('# Title\n\n**bold** and `code`\n\n- one\n- two')
@@ -24,6 +24,23 @@ test('mdToHtml escapes raw HTML in model output (the only main-side defense)', (
   assert.doesNotMatch(html, /<script/i) // no live tag
   assert.doesNotMatch(html, /<img/i) // escaped to inert text, not a real element
   assert.match(html, /&lt;script&gt;/)
+})
+
+test('mdToClipboardHtml keeps paragraph gaps as explicit <br><br> (Slack glues <p><p>)', () => {
+  // Slack's composer collapses adjacent <p> blocks to a single newline on paste
+  // (#4) — the blank line must be an explicit double break in the html flavor.
+  const html = mdToClipboardHtml('Para one.\n\nPara two.\n\nPara three.')
+  assert.equal(html, '<p>Para one.<br><br>Para two.<br><br>Para three.</p>')
+  assert.doesNotMatch(html, /<\/p>\s*<p>/)
+})
+
+test('mdToClipboardHtml leaves non-paragraph block boundaries and inline breaks alone', () => {
+  const html = mdToClipboardHtml('Intro.\n\n- one\n- two\n\n```\ncode\n```')
+  assert.match(html, /<ul>\s*<li>one<\/li>/)
+  assert.match(html, /<pre><code>code\n<\/code><\/pre>/)
+  // Single newlines are still <br>, and escaped tag text can't fake a boundary.
+  assert.equal(mdToClipboardHtml('A\nB'), '<p>A<br>B</p>')
+  assert.doesNotMatch(mdToClipboardHtml('literal </p>\n<p> text'), /<br><br>/)
 })
 
 test('htmlToMd converts a rich selection to Markdown', () => {
