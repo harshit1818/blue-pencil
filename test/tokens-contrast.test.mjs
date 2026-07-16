@@ -45,11 +45,12 @@ test('paper on ink (badge open state) meets non-text contrast (3:1) in both them
   }
 })
 
-test('no hardcoded #fff literals in renderer components', () => {
+test('no hardcoded color literals in renderer components (#35 tokens contract)', () => {
   const dir = new URL('../src/renderer/src/', import.meta.url)
   for (const file of readdirSync(dir)) {
     if (!/\.(jsx?|mjs)$/.test(file)) continue
     const src = readFileSync(new URL(file, dir), 'utf8')
-    assert.ok(!/['"`]#fff(fff)?['"`]/i.test(src), `${file} hardcodes #fff — use a token`)
+    const hit = src.match(/#[0-9a-f]{3,8}\b|rgba?\(/i)
+    assert.equal(hit, null, `${file} hardcodes color "${hit}" — use a token`)
   }
 })

@@ -78,7 +78,11 @@ Regenerate the GH block below: `bash loop.sh plan` (see PROMPT_plan.md).
 - [ ] #32 D1  pill()/sectionLabel factories duplicated          · sev:medium   · v:human
 - [ ] #33 D2  transition:'all .12s' on every pill               · sev:low      · v:human
 - [ ] #34 D3  hover/focus CSS as per-component style strings     · sev:low      · v:human
-- [ ] #35 D4  hardcoded '#fff' / off-scale values vs tokens     · sev:low      · v:auto
+- [x] #35 D4  hardcoded '#fff' / off-scale values vs tokens     · sev:low      · v:auto
+      (color half was fixed by C6's onPencil token — repro grep returns nothing.
+      Widened test/tokens-contrast.test.mjs from banning '#fff' to banning ANY
+      hex/rgb() literal in renderer, locking in the tokens contract. Off-scale
+      paddings left alone per the issue's own direction — D1/D3 cover styling.)
 
 ## E — Security hardening (#36)
 
