@@ -38,7 +38,7 @@ Regenerate the GH block below: `bash loop.sh plan` (see PROMPT_plan.md).
 - [ ] #7  A1  overlay grows off the bottom when a result loads   · sev:high     · v:human
 - [ ] #9  A3  auto-paste Restart affordance never seen           · sev:high     · v:human
 - [ ] #8  A2  overlay positioned using previous summon's size    · sev:medium   · v:human
-- [ ] #11 A5  saved bounds restored onto a missing display       · sev:medium   · v:auto
+- [x] #11 A5  saved bounds restored onto a missing display       · sev:medium   · v:auto
 - [ ] #12 A6  popover reload leaves rendererReady stale in main  · sev:low      · v:human
 - [ ] #13 A7  hotkey registration failure is silent to the user  · sev:low      · v:human
 

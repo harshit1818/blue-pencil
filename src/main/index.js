@@ -1,8 +1,9 @@
-import { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, shell, nativeTheme, clipboard } from 'electron'
+import { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, shell, nativeTheme, clipboard, screen } from 'electron'
 import { join } from 'path'
 import { readFileSync, writeFileSync } from 'fs'
 import { color } from '@tokens'
 import { transform } from './transform.js'
+import { validBounds } from './window-bounds.js'
 import { listProviders, effectiveSettings, isValidProvider } from './providers.js'
 import { setProviderId, setModelId } from './settings.js'
 import { hasApiKey, setApiKey, seedFromEnv } from './keychain.js'
@@ -35,7 +36,8 @@ function boundsFile() {
 }
 function loadBounds() {
   try {
-    return JSON.parse(readFileSync(boundsFile(), 'utf8'))
+    const saved = JSON.parse(readFileSync(boundsFile(), 'utf8'))
+    return validBounds(saved, screen.getAllDisplays())
   } catch {
     return null
   }
