@@ -66,6 +66,9 @@ const preserveClause = (markdown) =>
 
 // payload: { text, action: 'proofread'|'improve'|'simplify'|'summarize'|'format'|'tone', tone?, markdown? }
 // returns: { kind: 'proofread'|'rewrite', title, text, changes?, markdown }
+/**
+ * @param {{ text?: string, action?: string, tone?: string, markdown?: boolean }} [payload]
+ */
 export async function transform({ text, action, tone, markdown = false } = {}) {
   const input = (text || '').trim()
   if (!input) throw new Error('Nothing to transform.')

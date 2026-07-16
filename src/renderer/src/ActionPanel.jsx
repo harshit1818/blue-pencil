@@ -21,7 +21,7 @@ export default function ActionPanel({
   onTone, // (tone) => void
   onCopy, // () => void
   primary, // { label, icon, onClick }
-  hint // optional string shown under the result
+  hint = null // optional string shown under the result
 }) {
   const C = useThemeColors()
 

@@ -80,7 +80,9 @@ export function effectiveSettings() {
 }
 
 function noKey(provider) {
-  const err = new Error(`No API key set for ${REGISTRY[provider]?.label || provider}. Add the key to get started.`)
+  const err = /** @type {Error & { code?: string }} */ (
+    new Error(`No API key set for ${REGISTRY[provider]?.label || provider}. Add the key to get started.`)
+  )
   err.code = 'NO_KEY'
   return err
 }

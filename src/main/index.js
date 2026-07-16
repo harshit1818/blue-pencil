@@ -108,6 +108,7 @@ function createTray() {
   tray.setTitle('✎')
 
   // Login item only makes sense for the installed app, not the dev binary.
+  /** @type {import('electron').MenuItemConstructorOptions[]} */
   const loginItem = app.isPackaged
     ? [
         {
@@ -119,21 +120,21 @@ function createTray() {
       ]
     : []
 
-  tray.setContextMenu(
-    Menu.buildFromTemplate([
-      { label: 'Open Blue Pencil', click: showMainWindow },
-      { label: `Shortcut: ${HOTKEY_LABEL}`, enabled: false },
-      ...loginItem,
-      { type: 'separator' },
-      {
-        label: 'Quit Blue Pencil',
-        click: () => {
-          app.isQuitting = true
-          app.quit()
-        }
+  /** @type {import('electron').MenuItemConstructorOptions[]} */
+  const template = [
+    { label: 'Open Blue Pencil', click: showMainWindow },
+    { label: `Shortcut: ${HOTKEY_LABEL}`, enabled: false },
+    ...loginItem,
+    { type: 'separator' },
+    {
+      label: 'Quit Blue Pencil',
+      click: () => {
+        app.isQuitting = true
+        app.quit()
       }
-    ])
-  )
+    }
+  ]
+  tray.setContextMenu(Menu.buildFromTemplate(template))
 }
 
 app.whenReady().then(async () => {

@@ -16,7 +16,7 @@ marked.setOptions({ gfm: true, breaks: true })
 export default function Markdown({ source }) {
   const C = useThemeColors()
   const html = useMemo(
-    () => DOMPurify.sanitize(marked.parse(String(source ?? ''))),
+    () => DOMPurify.sanitize(marked.parse(String(source ?? ''), { async: false })),
     [source]
   )
 

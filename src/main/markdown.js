@@ -25,7 +25,7 @@ const md = new Marked({ gfm: true, breaks: true })
 md.use({ renderer: { html: htmlEscaper } })
 
 export function mdToHtml(source) {
-  return md.parse(String(source ?? '')).trim()
+  return md.parse(String(source ?? ''), { async: false }).trim()
 }
 
 // HTML -> Markdown for the grab seam: a rich selection populates the clipboard's
