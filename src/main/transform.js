@@ -1,5 +1,13 @@
-import { ask, resolveActive } from './providers.js'
 import { unwrapModelText } from './markdown.js'
+
+// providers.js drags in electron + keytar, which can't load under plain
+// `node --test`. Resolving it lazily keeps this module importable in tests,
+// which inject their own `call` and never touch a real provider.
+const defaultCall = async (prompt) => {
+  const { ask, resolveActive } = await import('./providers.js')
+  const { provider, model } = resolveActive()
+  return ask({ provider, model, prompt })
+}
 
 // Prompt construction lives here, between the IPC handler and the provider
 // registry. The renderer sends only a semantic action; the active provider and
@@ -68,13 +76,12 @@ const preserveClause = (markdown) =>
 // returns: { kind: 'proofread'|'rewrite', title, text, changes?, markdown }
 /**
  * @param {{ text?: string, action?: string, tone?: string, markdown?: boolean }} [payload]
+ * @param {(prompt: string) => Promise<string>} [call]
  */
-export async function transform({ text, action, tone, markdown = false } = {}) {
+export async function transform({ text, action, tone, markdown = false } = {}, call = defaultCall) {
   const input = (text || '').trim()
   if (!input) throw new Error('Nothing to transform.')
 
-  const { provider, model } = resolveActive()
-  const call = (prompt) => ask({ provider, model, prompt })
   const preserve = preserveClause(markdown)
 
   if (action === 'proofread') {

@@ -21,8 +21,10 @@ Regenerate the GH block below: `bash loop.sh plan` (see PROMPT_plan.md).
       `--dangerously-skip-permissions` run can't commit a leaked key.
       (Shipped as dependency-free `scripts/secret-scan.mjs` instead of gitleaks —
       no brew dep, verify stays hermetic; swap in gitleaks if patterns fall short.)
-- [ ] v:auto — `test/transform.test.mjs`: empty input throws; each action routes
+- [x] v:auto — `test/transform.test.mjs`: empty input throws; each action routes
       to the right prompt shape (mock `ask`).
+      (transform() now takes an optional injected `call`; providers.js is loaded
+      lazily so tests never touch electron/keytar.)
 - [ ] v:auto — `test/providers.test.mjs`: `noKey` sets `code:'NO_KEY'`; SDK errors
       map to user-facing messages.
 
