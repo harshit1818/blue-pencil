@@ -4,7 +4,7 @@ import { font, radius, shadow, space } from '@tokens'
 import ActionPanel from './ActionPanel.jsx'
 import { useThemeColors } from './useTheme.js'
 import { loadDraft, saveDraft } from './draft.js'
-import { panelResult } from './result.js'
+import { panelResult, clearPanel } from './result.js'
 
 // All visual values come from src/shared/tokens.js — nothing is hardcoded here.
 
@@ -95,10 +95,8 @@ export default function App() {
   useEffect(() => {
     if (!provider) return
     window.api?.hasKey(provider).then(setHasKey).catch(() => setHasKey(false))
+    clearPanel({ result: setResult, marks: setMarks, error: setError, copied: setCopied })
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setResult(null)
-    setMarks(null)
-    setError(null)
     setKeyDraft('')
   }, [provider])
 

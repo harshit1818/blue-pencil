@@ -4,7 +4,7 @@ import { font, radius } from '@tokens'
 import ActionPanel from './ActionPanel.jsx'
 import Markdown from './Markdown.jsx'
 import { useThemeColors } from './useTheme.js'
-import { panelResult } from './result.js'
+import { panelResult, clearPanel } from './result.js'
 
 // The hotkey overlay's container: a read-only preview of the grabbed text plus
 // the shared ActionPanel. Floats over other apps; the active provider comes from
@@ -84,6 +84,13 @@ export default function HotkeyPopover() {
       if (unsubSettings) unsubSettings()
     }
   }, [])
+
+  // #21: mirror App — a provider switch in the main window invalidates the
+  // overlay's stale result instead of leaving it deliverable under the new label.
+  useEffect(() => {
+    if (!provider) return
+    clearPanel({ result: setResult, marks: setMarks, error: setError, copied: setCopied, hint: setHint })
+  }, [provider])
 
   // Keyboard-first: Escape dismisses; Enter runs the primary; 1-4 run the four
   // actions. A stable wrapper calls the latest handler (held in a ref) so it

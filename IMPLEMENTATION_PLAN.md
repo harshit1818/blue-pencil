@@ -50,7 +50,7 @@ Regenerate the GH block below: `bash loop.sh plan` (see PROMPT_plan.md).
 - [x] #16 B2  reTone drops the result markdown flag              · sev:low      · v:auto
 - [ ] #19 B5  stale shortcut comment + undiscoverable number keys· sev:low      · v:human
 - [ ] #20 B6  model-input echo clobbers fast typing              · sev:low      · v:human
-- [ ] #21 B7  overlay result not invalidated on provider change  · sev:low      · v:auto
+- [x] #21 B7  overlay result not invalidated on provider change  · sev:low      · v:auto
 - [ ] #22 B8  refactor: shared useTransform hook + constants     · sev:—        · v:human
 
 ## C — Accessibility & user feedback (#23)
