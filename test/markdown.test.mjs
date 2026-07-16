@@ -10,6 +10,15 @@ test('mdToHtml renders structure', () => {
   assert.match(html, /<li>one<\/li>/)
 })
 
+test('mdToHtml keeps single newlines as line breaks (line-oriented content)', () => {
+  // Model output is line-oriented; without breaks these collapse to one line on paste.
+  const html = mdToHtml('Name: Jane Doe\nID: ABC123\nCost: 10.00 USD')
+  assert.match(html, /Jane Doe<br>/)
+  assert.match(html, /ABC123<br>/)
+  // A blank line still starts a new paragraph (not merged).
+  assert.match(mdToHtml('Line one\n\nLine two'), /<p>Line one<\/p>\s*<p>Line two<\/p>/)
+})
+
 test('mdToHtml escapes raw HTML in model output (the only main-side defense)', () => {
   const html = mdToHtml('Hello <script>alert(1)</script> <img src=x onerror=alert(2)>')
   assert.doesNotMatch(html, /<script/i) // no live tag
@@ -48,6 +57,19 @@ test('unwrapModelText strips a bare ``` wrapper only when allowBare', () => {
 test('unwrapModelText strips a leading preamble line', () => {
   assert.equal(unwrapModelText("Here's the revised text:\n\n# Hi"), '# Hi')
   assert.equal(unwrapModelText('Sure! Here is the result:\nDone'), 'Done')
+})
+
+test('unwrapModelText strips the echoed """ input delimiter', () => {
+  // The model wraps its reply in the same """ we delimit the input with.
+  assert.equal(
+    unwrapModelText('"""Notification\n\n- **Jane Doe**\n- `10 USD`"""', { allowBare: true }),
+    'Notification\n\n- **Jane Doe**\n- `10 USD`'
+  )
+  // Only leading or only trailing is stripped too.
+  assert.equal(unwrapModelText('"""just this'), 'just this')
+  assert.equal(unwrapModelText('just this"""'), 'just this')
+  // A single/double quote inside real content must survive (not a delimiter).
+  assert.equal(unwrapModelText('He said "hi" to her.'), 'He said "hi" to her.')
 })
 
 test('unwrapModelText leaves clean output and mid-content fences untouched', () => {

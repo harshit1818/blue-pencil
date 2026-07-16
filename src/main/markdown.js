@@ -17,7 +17,11 @@ function escapeHtml(s) {
 // object ({ text }) to renderer hooks; tolerate a bare string too.
 const htmlEscaper = (token) => escapeHtml(typeof token === 'string' ? token : token?.text ?? '')
 
-const md = new Marked({ gfm: true, breaks: false })
+// breaks:true — honor single newlines as <br>. Model output (and grabbed chat
+// messages, notifications, addresses) is line-oriented; with breaks:false those
+// lines collapse into one paragraph and paste as a single line. GFM/Slack/GitHub
+// all treat a newline as a break, which is what users expect on paste.
+const md = new Marked({ gfm: true, breaks: true })
 md.use({ renderer: { html: htmlEscaper } })
 
 export function mdToHtml(source) {
@@ -55,5 +59,8 @@ export function unwrapModelText(raw, { allowBare = false } = {}) {
     }
   }
   s = s.replace(/^(?:sure[,.!]?|certainly[,.!]?|here(?:'s| is)\b|below is\b)[^\n]*:[ \t]*\n+/i, '')
+  // Models sometimes echo the `"""` delimiter our prompts wrap the input in. It's
+  // never legitimate output here, so strip a leading/trailing run of ≥3 quotes.
+  s = s.replace(/^"{3,}[ \t]*\n?/, '').replace(/\n?[ \t]*"{3,}$/, '')
   return s.trim()
 }
