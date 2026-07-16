@@ -6,10 +6,17 @@ stops (the agent writes `.loop/DONE`).
 
 ## Backpressure hardening (do first — makes the loop safer)
 
-- [ ] Add ESLint flat config (`eslint.config.js`) + `lint` script, then fold
+- [x] Add ESLint flat config (`eslint.config.js`) + `lint` script, then fold
       `npm run lint` into `verify`. Start with `eslint:recommended` + react-hooks;
       fix or `// eslint-disable` real hits until `eslint .` is green. Why: catches
       undefined vars / unused / bad hook deps that typecheck misses.
+      Done: `eslint.config.mjs` (recommended + react-hooks recommended-latest on
+      renderer, plus `eslint-plugin-react`'s `jsx-uses-vars` so JSX-only imports
+      aren't flagged unused). Removed a genuinely unused `React` import in
+      App.jsx; two intentional patterns (effect-driven UI reset on provider
+      change, ref reassigned every render for a stable keydown listener) got
+      targeted `eslint-disable-next-line` with a reason. `lint` now runs before
+      `test`/`build` in `verify`.
 - [ ] Enable the gitleaks pre-commit hook in a way the loop can't bypass, or add
       a `verify`-time secret scan. Why: `--dangerously-skip-permissions` runs
       unattended; a leaked key must be blocked, not just discouraged.

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { PenLine, X, CornerDownLeft, KeyRound, Copy } from 'lucide-react'
 import { font, radius, shadow, space } from '@tokens'
 import ActionPanel from './ActionPanel.jsx'
@@ -85,10 +85,12 @@ export default function App() {
     }
   }, [])
 
-  // On provider change: re-check its key, clear transient UI.
+  // On provider change: re-check its key, clear transient UI. Provider comes
+  // from outside React (main-process broadcast); resetting on change is the point.
   useEffect(() => {
     if (!provider) return
     window.api?.hasKey(provider).then(setHasKey).catch(() => setHasKey(false))
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setResult(null)
     setMarks(null)
     setError(null)

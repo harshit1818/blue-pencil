@@ -169,7 +169,9 @@ export default function HotkeyPopover() {
     setNeedsRestart(true)
   }
 
-  // Reassigned every render so the keydown wrapper always sees fresh state.
+  // Reassigned every render so the keydown wrapper always sees fresh state:
+  // a stable listener reads this ref instead of being resubscribed every render.
+  // eslint-disable-next-line react-hooks/refs
   onKeyRef.current = (e) => {
     if (e.key === 'Escape') {
       window.api?.popoverDismiss?.()
