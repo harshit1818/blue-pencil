@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import OpenAI from 'openai'
 import { getApiKey } from './keychain.js'
 import { getSettings } from './settings.js'
+import { noKey, normalizeError } from './provider-errors.js'
 
 // ---- The single seam, now a small registry --------------------------------
 // Every provider exposes the same contract: ask(prompt) -> string. Adding a
@@ -79,34 +80,6 @@ export function effectiveSettings() {
   return { provider: active, models: out }
 }
 
-function noKey(provider) {
-  const err = /** @type {Error & { code?: string }} */ (
-    new Error(`No API key set for ${REGISTRY[provider]?.label || provider}. Add the key to get started.`)
-  )
-  err.code = 'NO_KEY'
-  return err
-}
-
-// Turn raw SDK errors into messages the renderer can show verbatim
-// (design-notes: errors state what happened and how to fix it). Both the
-// Anthropic and OpenAI SDKs expose .status on their error objects.
-function normalizeError(e, label, model) {
-  const status = e?.status
-  if (status === 401 || status === 403) {
-    return new Error(`${label} rejected the key. Check it and try again.`)
-  }
-  if (status === 429) {
-    return new Error(`${label} is rate-limiting — you’ve hit its quota or rate limit. Wait a moment, switch provider, or check your plan.`)
-  }
-  if (status === 404) {
-    return new Error(`${label} didn’t recognise the model “${model}”. Check the model id.`)
-  }
-  if (typeof status === 'number' && status >= 500) {
-    return new Error(`${label} had a server error. Try again shortly.`)
-  }
-  return e instanceof Error ? e : new Error(String(e))
-}
-
 async function askAnthropic({ apiKey, model, prompt }) {
   const client = new Anthropic({ apiKey })
   const message = await client.messages.create({
@@ -142,7 +115,7 @@ export async function ask({ provider, model, prompt }) {
   if (!cfg) throw new Error(`Unknown provider: ${provider}`)
 
   const apiKey = await getApiKey(provider)
-  if (!apiKey) throw noKey(provider)
+  if (!apiKey) throw noKey(cfg.label)
 
   const useModel = (model && model.trim()) || cfg.defaultModel
   try {

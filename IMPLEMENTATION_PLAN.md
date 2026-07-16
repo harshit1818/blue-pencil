@@ -25,8 +25,10 @@ Regenerate the GH block below: `bash loop.sh plan` (see PROMPT_plan.md).
       to the right prompt shape (mock `ask`).
       (transform() now takes an optional injected `call`; providers.js is loaded
       lazily so tests never touch electron/keytar.)
-- [ ] v:auto — `test/providers.test.mjs`: `noKey` sets `code:'NO_KEY'`; SDK errors
+- [x] v:auto — `test/providers.test.mjs`: `noKey` sets `code:'NO_KEY'`; SDK errors
       map to user-facing messages.
+      (Pure helpers extracted to `src/main/provider-errors.js` so the test loads
+      without electron/keytar — same lazy pattern as transform.js.)
 
 <!-- GH:BEGIN — everything below is regenerated from GitHub; edit labels, not lines -->
 
