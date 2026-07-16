@@ -4,7 +4,7 @@ import { font, radius } from '@tokens'
 import ActionPanel from './ActionPanel.jsx'
 import Markdown from './Markdown.jsx'
 import { useThemeColors } from './useTheme.js'
-import { panelResult, clearPanel } from './result.js'
+import { panelResult, clearPanel, stampRun } from './result.js'
 
 // The hotkey overlay's container: a read-only preview of the grabbed text plus
 // the shared ActionPanel. Floats over other apps; the active provider comes from
@@ -45,6 +45,7 @@ export default function HotkeyPopover() {
   const [needsRestart, setNeedsRestart] = useState(false)
   const rootRef = useRef(null)
   const onKeyRef = useRef(null)
+  const runGen = useRef(0)
 
   const providerLabel = providers.find((p) => p.id === provider)?.label || provider
   const words = captured.trim() ? captured.trim().split(/\s+/).length : 0
@@ -89,7 +90,7 @@ export default function HotkeyPopover() {
   // overlay's stale result instead of leaving it deliverable under the new label.
   useEffect(() => {
     if (!provider) return
-    clearPanel({ result: setResult, marks: setMarks, error: setError, copied: setCopied, hint: setHint })
+    clearPanel({ result: setResult, marks: setMarks, error: setError, copied: setCopied, hint: setHint, gen: runGen })
   }, [provider])
 
   // Keyboard-first: Escape dismisses; Enter runs the primary; 1-4 run the four
@@ -125,8 +126,9 @@ export default function HotkeyPopover() {
       setMarks(null)
       setCopied(false)
       setHint(null)
+      const fresh = stampRun(runGen)
       try {
-        await work()
+        await work(fresh)
       } catch {
         setError(ERROR_GENERIC)
       } finally {
@@ -137,21 +139,23 @@ export default function HotkeyPopover() {
   )
 
   const doAction = (id) =>
-    run(id, async () => {
+    run(id, async (fresh) => {
       const res = await window.api.transform({ text: captured, action: id, markdown: capturedMarkdown })
+      if (!fresh()) return
       if (!res?.ok) return showError(res)
       setResult(panelResult(res.result))
       if (res.result.kind === 'proofread') setMarks(res.result.changes || [])
     })
 
   const reTone = (t) =>
-    run('tone-' + t, async () => {
+    run('tone-' + t, async (fresh) => {
       const res = await window.api.transform({
         text: captured,
         action: 'tone',
         tone: t,
         markdown: capturedMarkdown
       })
+      if (!fresh()) return
       if (!res?.ok) return showError(res)
       setResult(panelResult(res.result))
     })

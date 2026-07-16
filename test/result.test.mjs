@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { transform } from '../src/main/transform.js'
-import { panelResult, clearPanel } from '../src/renderer/src/result.js'
+import { panelResult, clearPanel, stampRun } from '../src/renderer/src/result.js'
 
 // #16: App's reTone built the result inline and dropped the markdown flag,
 // diverging from HotkeyPopover. Both now build it through panelResult.
@@ -39,4 +39,25 @@ test('a host without the overlay-only hint setter still clears the rest', () => 
   )
   clearPanel(set)
   assert.deepEqual(calls, { result: null, marks: null, error: null, copied: false })
+})
+
+// #42: sibling of #21 — a transform still in flight when the provider switches
+// must not land a result produced by the previous provider. Runs are stamped
+// with the current generation; clearPanel bumps it, so the stamp goes stale.
+
+const noopSet = (gen) => ({ result() {}, marks() {}, error() {}, copied() {}, gen })
+
+test('a run stamped before a provider switch reads stale after it', () => {
+  const gen = { current: 0 }
+  const fresh = stampRun(gen)
+  assert.equal(fresh(), true)
+  clearPanel(noopSet(gen))
+  assert.equal(fresh(), false)
+})
+
+test('a run stamped after the switch stays fresh', () => {
+  const gen = { current: 0 }
+  clearPanel(noopSet(gen))
+  const fresh = stampRun(gen)
+  assert.equal(fresh(), true)
 })

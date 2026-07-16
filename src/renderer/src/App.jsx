@@ -4,7 +4,7 @@ import { font, radius, shadow, space } from '@tokens'
 import ActionPanel from './ActionPanel.jsx'
 import { useThemeColors } from './useTheme.js'
 import { loadDraft, saveDraft } from './draft.js'
-import { panelResult, clearPanel } from './result.js'
+import { panelResult, clearPanel, stampRun } from './result.js'
 
 // All visual values come from src/shared/tokens.js — nothing is hardcoded here.
 
@@ -41,6 +41,7 @@ export default function App() {
   const [showKeys, setShowKeys] = useState(false)
   const [keyDraft, setKeyDraft] = useState('')
   const wrapRef = useRef(null)
+  const runGen = useRef(0)
 
   // Persist the draft so quit/relaunch (and the A3/A4 Restart path) keeps it.
   useEffect(() => {
@@ -95,7 +96,7 @@ export default function App() {
   useEffect(() => {
     if (!provider) return
     window.api?.hasKey(provider).then(setHasKey).catch(() => setHasKey(false))
-    clearPanel({ result: setResult, marks: setMarks, error: setError, copied: setCopied })
+    clearPanel({ result: setResult, marks: setMarks, error: setError, copied: setCopied, gen: runGen })
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setKeyDraft('')
   }, [provider])
@@ -138,8 +139,9 @@ export default function App() {
       setResult(null)
       setMarks(null)
       setCopied(false)
+      const fresh = stampRun(runGen)
       try {
-        await work()
+        await work(fresh)
       } catch {
         // Only true IPC/unexpected failures land here — provider errors come
         // back as a structured envelope, not a throw.
@@ -152,16 +154,18 @@ export default function App() {
   )
 
   const doAction = (id) =>
-    run(id, async () => {
+    run(id, async (fresh) => {
       const res = await window.api.transform({ text, action: id })
+      if (!fresh()) return
       if (!res?.ok) return showError(res)
       setResult(panelResult(res.result))
       if (res.result.kind === 'proofread') setMarks(res.result.changes || [])
     })
 
   const reTone = (t) =>
-    run('tone-' + t, async () => {
+    run('tone-' + t, async (fresh) => {
       const res = await window.api.transform({ text, action: 'tone', tone: t })
+      if (!fresh()) return
       if (!res?.ok) return showError(res)
       setResult(panelResult(res.result))
     })
