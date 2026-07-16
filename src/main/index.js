@@ -5,11 +5,12 @@ import { color } from '@tokens'
 import { transform } from './transform.js'
 import { validBounds } from './window-bounds.js'
 import { installNavigationGuards } from './navigation-guard.js'
+import { guardSensitiveIpc } from './ipc-guard.js'
 import { listProviders, effectiveSettings, isValidProvider } from './providers.js'
 import { setProviderId, setModelId } from './settings.js'
 import { hasApiKey, setApiKey, seedFromEnv } from './keychain.js'
 import { registerHotkey, unregisterHotkey } from './hotkey.js'
-import { resizeOverlay, hideOverlay, markRendererReady } from './overlay.js'
+import { resizeOverlay, hideOverlay, markRendererReady, isOverlayVisible } from './overlay.js'
 import {
   pasteBack,
   writeResultToClipboard,
@@ -23,12 +24,16 @@ const HOTKEY_LABEL = "⌘⇧'"
 let mainWindow = null
 let tray = null
 
-// Guard every window (main + overlay) before any is created: in-page links in
-// model output must never top-level-navigate a window that carries window.api.
-installNavigationGuards(app, shell, {
+// Shared definition of "our own page" for the navigation guard (#37) and the
+// sensitive-IPC guard (#39).
+const guardOpts = {
   devOrigin: process.env.ELECTRON_RENDERER_URL || null,
   appRoot: join(__dirname, '..')
-})
+}
+
+// Guard every window (main + overlay) before any is created: in-page links in
+// model output must never top-level-navigate a window that carries window.api.
+installNavigationGuards(app, shell, guardOpts)
 
 function broadcastSettings() {
   const snapshot = effectiveSettings()
@@ -160,7 +165,6 @@ app.whenReady().then(async () => {
   })
   ipcMain.handle('providers:list', () => listProviders())
   ipcMain.handle('key:has', (_event, provider) => hasApiKey(provider))
-  ipcMain.handle('key:set', (_event, provider, key) => setApiKey(provider, key))
 
   ipcMain.handle('settings:get', () => effectiveSettings())
   ipcMain.handle('settings:setProvider', (_event, id) => {
@@ -189,14 +193,18 @@ app.whenReady().then(async () => {
     writeResultToClipboard(text, markdown)
   )
 
-  // v1 deliver seam (granted): paste the result into the source app, then dismiss.
-  ipcMain.handle('hotkey:pasteBack', async (_event, text, markdown) => {
-    await pasteBack(text, { markdown })
-    hideOverlay()
+  // Destructive endpoints (key:set, hotkey:pasteBack, accessibility:relaunch)
+  // validate the sender frame — and overlay visibility for paste-back — in the
+  // guard, not here.
+  guardSensitiveIpc(ipcMain, guardOpts, {
+    setApiKey,
+    pasteBack,
+    hideOverlay,
+    isOverlayVisible,
+    relaunchApp
   })
   ipcMain.handle('accessibility:request', () => requestAccessibility())
   ipcMain.on('accessibility:openSettings', () => openAccessibilitySettings())
-  ipcMain.on('accessibility:relaunch', () => relaunchApp())
 
   registerHotkey()
   createTray()

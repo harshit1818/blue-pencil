@@ -93,7 +93,12 @@ Regenerate the GH block below: `bash loop.sh plan` (see PROMPT_plan.md).
       everywhere. Replaces the main-window-only handler. Pure classify fn +
       fake-electron wiring test in test/navigation-guard.test.mjs.)
 - [ ] #38 E2  sandbox:false on both BrowserWindows              · sev:medium   · v:human
-- [ ] #39 E3  IPC endpoints lack sender/gesture validation      · sev:low      · v:auto
+- [x] #39 E3  IPC endpoints lack sender/gesture validation      · sev:low      · v:auto
+      (src/main/ipc-guard.js: key:set / hotkey:pasteBack / accessibility:relaunch
+      honoured only for a top frame whose URL classifies 'allow' via the #37
+      navigation classifier — one definition of "our own page"; pasteBack also
+      requires the overlay to be visible. Pure fn + fake-ipcMain wiring test in
+      test/ipc-guard.test.mjs.)
 - [ ] #40 E4  osascript escaping misses backslashes             · sev:low      · v:auto
 
 ## Ungrouped
