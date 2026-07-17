@@ -39,9 +39,9 @@ Regenerate the GH block below: `bash loop.sh plan` (see PROMPT_plan.md).
 - [ ] #9  A3  auto-paste Restart affordance never seen           · sev:high     · v:human
 - [ ] #8  A2  overlay positioned using previous summon's size    · sev:medium   · v:human
 - [x] #11 A5  saved bounds restored onto a missing display       · sev:medium   · v:auto
+- [ ] #46 A8  re-press of hotkey w/ selection shows empty state   · sev:medium   · v:human
 - [ ] #12 A6  popover reload leaves rendererReady stale in main  · sev:low      · v:human
 - [ ] #13 A7  hotkey registration failure is silent to the user  · sev:low      · v:human
-- [ ] #46 A8  re-press of hotkey w/ selection shows empty state   · sev:medium   · v:human
 - [ ] #47 A9  draggable overlay via header grab strip             · sev:low      · v:human
 
 ## B — Renderer state & architecture (#14)
@@ -53,10 +53,10 @@ Regenerate the GH block below: `bash loop.sh plan` (see PROMPT_plan.md).
 - [ ] #19 B5  stale shortcut comment + undiscoverable number keys· sev:low      · v:human
 - [ ] #20 B6  model-input echo clobbers fast typing              · sev:low      · v:human
 - [x] #21 B7  overlay result not invalidated on provider change  · sev:low      · v:auto
-- [ ] #22 B8  refactor: shared useTransform hook + constants     · sev:—        · v:human
 - [x] #42 B9  in-flight result lands after provider switch       · sev:low      · v:auto
 - [x] #43 B10 in-flight result lands after fresh hotkey summon   · sev:low      · v:auto
 - [ ] #45 B11 action pill highlight stuck on Proofread            · sev:low      · v:human
+- [ ] #22 B8  refactor: shared useTransform hook + constants     · sev:—        · v:human
 
 ## C — Accessibility & user feedback (#23)
 
@@ -109,19 +109,7 @@ Regenerate the GH block below: `bash loop.sh plan` (see PROMPT_plan.md).
 
 ## Ungrouped
 
-- [x] #4  Format loses blank lines / paragraph breaks           · bug          · v:auto
-      (Slack collapses adjacent <p> blocks to one newline on paste. New
-      mdToClipboardHtml merges p→p boundaries into explicit <br><br> at the
-      deliver seam only; automation.js writeResult uses it. Tests in
-      test/markdown.test.mjs. Suspect 1 — model omitting the blank line —
-      needs live eyeballs: follow-up #44, v:human.)
-- [ ] #44 Confirm Format fixes live: paragraph gaps + bullet lists · bug      · v:human
-- [x] #3  Format flattens bullet lists into prose               · bug          · v:auto
-      (Prompt-level per the issue: FORMAT_INSTRUCTION now treats any existing
-      list marker (-, *, •, numbered) as a genuine enumeration — never collapse
-      into prose; the "genuine enumeration" judgment applies only to creating
-      NEW lists. Prompt-shape test in test/transform.test.mjs. Live Slack
-      confirmation rides on #44, v:human.)
+- [ ] #1  Overlay cursor-anchored, clipped near screen edges    · —            · v:human
 - [x] #2  Format shreds bare multi-line code into inline frags  · bug          · v:auto
       (Prompt-level like #3: FORMAT_INSTRUCTION gains a bare-block rule — detect
       an unfenced multi-line code / traceback / log run and wrap the WHOLE run in
@@ -130,6 +118,18 @@ Regenerate the GH block below: `bash loop.sh plan` (see PROMPT_plan.md).
       lines into inline fragments. Prompt-shape test in test/transform.test.mjs.
       Live confirmation rides on #44, v:human. Side fix: eslint now ignores
       .claude/** so stale session worktrees can't fail verify.)
+- [x] #3  Format flattens bullet lists into prose               · bug          · v:auto
+      (Prompt-level per the issue: FORMAT_INSTRUCTION now treats any existing
+      list marker (-, *, •, numbered) as a genuine enumeration — never collapse
+      into prose; the "genuine enumeration" judgment applies only to creating
+      NEW lists. Prompt-shape test in test/transform.test.mjs. Live Slack
+      confirmation rides on #44, v:human.)
+- [x] #4  Format loses blank lines / paragraph breaks           · bug          · v:auto
+      (Slack collapses adjacent <p> blocks to one newline on paste. New
+      mdToClipboardHtml merges p→p boundaries into explicit <br><br> at the
+      deliver seam only; automation.js writeResult uses it. Tests in
+      test/markdown.test.mjs. Suspect 1 — model omitting the blank line —
+      needs live eyeballs: follow-up #44, v:human.)
 - [x] #5  Format: deliberate auto-inline-code & Slack headers   · enhancement  · v:auto
       (Decision made deliberate on both counts. Inline-code: scoped the
       FORMAT_INSTRUCTION rule to literal code tokens only — commands, paths, env
@@ -139,6 +139,6 @@ Regenerate the GH block below: `bash loop.sh plan` (see PROMPT_plan.md).
       deliver seam (before the p→p merge, so they keep their blank line in
       Slack); preview seam keeps real headings. Test in test/markdown.test.mjs;
       doc tradeoff line updated. Live Slack look rides on #44, v:human.)
-- [ ] #1  Overlay cursor-anchored, clipped near screen edges    · —            · v:human
+- [ ] #44 Confirm Format fixes live: paragraph gaps + bullet lists · bug      · v:human
 
 <!-- GH:END -->
