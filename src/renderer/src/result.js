@@ -27,3 +27,9 @@ export const stampRun = (gen) => {
   const stamp = gen.current
   return () => gen.current === stamp
 }
+
+// A finished run may only release `busy` if it still owns it. A stale run's
+// finally must not clear a newer run's spinner — but when no newer run has
+// started, the stale run is still the owner and must release, or the host
+// deadlocks (run() refuses while busy). Functional update makes this atomic.
+export const releaseBusy = (id) => (busy) => (busy === id ? null : busy)

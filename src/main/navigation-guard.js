@@ -25,7 +25,14 @@ export function classifyNavigation(url, { devOrigin = null, appRoot = null } = {
   if (u.protocol === 'file:') {
     if (!appRoot) return 'deny'
     const root = appRoot.endsWith('/') ? appRoot : appRoot + '/'
-    return decodeURIComponent(u.pathname).startsWith(root) ? 'allow' : 'deny'
+    // decodeURIComponent throws on malformed percent-encoding (file:///a%zz);
+    // an exception here would escape the will-navigate listener before
+    // preventDefault — the guard must fail closed, not open.
+    try {
+      return decodeURIComponent(u.pathname).startsWith(root) ? 'allow' : 'deny'
+    } catch {
+      return 'deny'
+    }
   }
   if (u.protocol === 'http:' || u.protocol === 'https:') return 'external'
   return 'deny'

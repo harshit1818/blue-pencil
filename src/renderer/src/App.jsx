@@ -4,7 +4,7 @@ import { font, radius, shadow, space } from '@tokens'
 import ActionPanel from './ActionPanel.jsx'
 import { useThemeColors } from './useTheme.js'
 import { loadDraft, saveDraft } from './draft.js'
-import { panelResult, clearPanel, stampRun } from './result.js'
+import { panelResult, clearPanel, stampRun, releaseBusy } from './result.js'
 
 // All visual values come from src/shared/tokens.js — nothing is hardcoded here.
 
@@ -144,10 +144,11 @@ export default function App() {
         await work(fresh)
       } catch {
         // Only true IPC/unexpected failures land here — provider errors come
-        // back as a structured envelope, not a throw.
-        setError(ERROR_GENERIC)
+        // back as a structured envelope, not a throw. A stale run's rejection
+        // must not plant an error under the new context.
+        if (fresh()) setError(ERROR_GENERIC)
       } finally {
-        setBusy(null)
+        setBusy(releaseBusy(id))
       }
     },
     [text, busy, provider]

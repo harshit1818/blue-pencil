@@ -29,6 +29,14 @@ test('script-ish and malformed URLs are denied outright', () => {
   assert.equal(classifyNavigation('not a url', opts), 'deny')
 })
 
+test('malformed percent-encoding in a file: path fails closed, not open', () => {
+  // decodeURIComponent throws on these; an escaped throw would skip
+  // preventDefault in the will-navigate listener and let the navigation through.
+  assert.equal(classifyNavigation('file:///a%zz', opts), 'deny')
+  assert.equal(classifyNavigation('file:///app/out/x%zz.html', opts), 'deny')
+  assert.doesNotThrow(() => classifyNavigation('file:///%E0%A4%A', opts))
+})
+
 function fakeElectron() {
   const opened = []
   const contentsList = []

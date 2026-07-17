@@ -4,7 +4,7 @@ import { font, radius } from '@tokens'
 import ActionPanel from './ActionPanel.jsx'
 import Markdown from './Markdown.jsx'
 import { useThemeColors } from './useTheme.js'
-import { panelResult, clearPanel, stampRun } from './result.js'
+import { panelResult, clearPanel, stampRun, releaseBusy } from './result.js'
 
 // The hotkey overlay's container: a read-only preview of the grabbed text plus
 // the shared ActionPanel. Floats over other apps; the active provider comes from
@@ -136,9 +136,10 @@ export default function HotkeyPopover() {
       try {
         await work(fresh)
       } catch {
-        setError(ERROR_GENERIC)
+        // A stale run's rejection must not plant an error under the new context.
+        if (fresh()) setError(ERROR_GENERIC)
       } finally {
-        setBusy(null)
+        setBusy(releaseBusy(id))
       }
     },
     [captured, busy]

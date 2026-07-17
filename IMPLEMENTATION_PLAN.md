@@ -112,7 +112,7 @@ Regenerate the GH block below: `bash loop.sh plan` (see PROMPT_plan.md).
       deliver seam only; automation.js writeResult uses it. Tests in
       test/markdown.test.mjs. Suspect 1 — model omitting the blank line —
       needs live eyeballs: follow-up #44, v:human.)
-- [ ] #44 Confirm Format paragraph gaps survive live Slack paste · bug         · v:human
+- [ ] #44 Confirm Format fixes live: paragraph gaps + bullet lists · bug      · v:human
 - [x] #3  Format flattens bullet lists into prose               · bug          · v:auto
       (Prompt-level per the issue: FORMAT_INSTRUCTION now treats any existing
       list marker (-, *, •, numbered) as a genuine enumeration — never collapse
