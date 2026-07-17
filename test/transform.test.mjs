@@ -82,8 +82,16 @@ test('format prompt fences bare multi-line code verbatim instead of shredding it
   // the bare-block rule must come before the inline-code rule so detection wins
   assert.ok(
     calls[0].indexOf('bare (unfenced) run of multi-line code') <
-      calls[0].indexOf('Use inline code for commands')
+      calls[0].indexOf('Use inline code ONLY')
   )
+})
+
+test('format prompt scopes inline code to literal tokens, not technical nouns (#5)', async () => {
+  const { calls, call } = mock('out')
+  await transform({ text: 'roll out the feature flag after the migration', action: 'format' }, call)
+  assert.match(calls[0], /Use inline code ONLY for literal code tokens/)
+  assert.match(calls[0], /Do NOT mark ordinary technical nouns/)
+  assert.match(calls[0], /leave plain words plain/)
 })
 
 test('tone requires a tone and titles the result with it', async () => {

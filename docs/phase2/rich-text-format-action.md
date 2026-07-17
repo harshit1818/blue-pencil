@@ -42,8 +42,10 @@ One write covers both. (This corrects the original spec's per-app `mrkdwn`/`prof
 design: Slack's default composer renders pasted *rich text*, so writing HTML is
 correct for Slack too — writing `*bold*` as plain text would show literal markup.)
 
-**Fidelity edges (accepted for Slice 1):** Slack has no headings, so `##` degrades to
-bold/plain on paste; fenced blocks paste as monospace without syntax highlighting.
+**Fidelity edges (accepted for Slice 1):** Slack has no headings, so
+`mdToClipboardHtml` downgrades `##` to a **bold** paragraph at the deliver seam —
+emphasis that survives every paste target (#5); fenced blocks paste as monospace
+without syntax highlighting.
 The one real exception is users who enable Slack's "Format with markup" mode — a
 future single override, not worth building now.
 

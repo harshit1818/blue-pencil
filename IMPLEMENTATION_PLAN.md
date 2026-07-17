@@ -130,7 +130,15 @@ Regenerate the GH block below: `bash loop.sh plan` (see PROMPT_plan.md).
       lines into inline fragments. Prompt-shape test in test/transform.test.mjs.
       Live confirmation rides on #44, v:human. Side fix: eslint now ignores
       .claude/** so stale session worktrees can't fail verify.)
-- [ ] #5  Format: deliberate auto-inline-code & Slack headers   · enhancement  · v:auto
+- [x] #5  Format: deliberate auto-inline-code & Slack headers   · enhancement  · v:auto
+      (Decision made deliberate on both counts. Inline-code: scoped the
+      FORMAT_INSTRUCTION rule to literal code tokens only — commands, paths, env
+      vars, code-syntax identifiers — with an explicit "do NOT mark ordinary
+      technical nouns" clause; prompt-shape test in test/transform.test.mjs.
+      Headers: mdToClipboardHtml now downgrades h1–h6 to bold paragraphs at the
+      deliver seam (before the p→p merge, so they keep their blank line in
+      Slack); preview seam keeps real headings. Test in test/markdown.test.mjs;
+      doc tradeoff line updated. Live Slack look rides on #44, v:human.)
 - [ ] #1  Overlay cursor-anchored, clipped near screen edges    · —            · v:human
 
 <!-- GH:END -->

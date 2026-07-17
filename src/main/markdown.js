@@ -32,11 +32,16 @@ export function mdToHtml(source) {
 // the gap between adjacent <p> blocks to a single newline on paste, gluing
 // paragraphs together (#4). Merging p→p boundaries into an explicit <br><br>
 // keeps the blank line in Slack and renders the same in margin-honoring editors
-// (Gmail, Notion, Word). Other block boundaries (lists, code, headings) are left
-// alone. marked emits exactly '</p>\n<p>' between paragraphs, and any literal
-// tag text inside a paragraph is HTML-escaped, so the replace can't misfire.
+// (Gmail, Notion, Word). Headings are downgraded to bold paragraphs first: Slack
+// has no heading concept and pastes <h2> as plain text, so bold is the emphasis
+// that survives everywhere (#5) — and as paragraphs they join the <br><br> merge.
+// Other block boundaries (lists, code) are left alone. marked emits exactly
+// '</p>\n<p>' between paragraphs, and any literal tag text inside a paragraph is
+// HTML-escaped, so the replaces can't misfire.
 export function mdToClipboardHtml(source) {
-  return mdToHtml(source).replace(/<\/p>\n<p>/g, '<br><br>')
+  return mdToHtml(source)
+    .replace(/<h[1-6]>([\s\S]*?)<\/h[1-6]>/g, '<p><strong>$1</strong></p>')
+    .replace(/<\/p>\n<p>/g, '<br><br>')
 }
 
 // HTML -> Markdown for the grab seam: a rich selection populates the clipboard's

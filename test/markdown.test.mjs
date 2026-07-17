@@ -43,6 +43,20 @@ test('mdToClipboardHtml leaves non-paragraph block boundaries and inline breaks 
   assert.doesNotMatch(mdToClipboardHtml('literal </p>\n<p> text'), /<br><br>/)
 })
 
+test('mdToClipboardHtml downgrades headings to bold so they survive Slack (#5)', () => {
+  // Slack has no headings — <h2> pastes as plain text. Bold is the emphasis that
+  // survives; the heading joins the paragraph flow so it also gets the blank line.
+  const html = mdToClipboardHtml('## Deploy notes\n\nShipped the fix.')
+  assert.equal(html, '<p><strong>Deploy notes</strong><br><br>Shipped the fix.</p>')
+  assert.doesNotMatch(html, /<h[1-6]/)
+  // every level downgrades, inline formatting inside the heading survives
+  const levels = mdToClipboardHtml('# A\n\n###### Z *em*')
+  assert.match(levels, /<strong>A<\/strong>/)
+  assert.match(levels, /<strong>Z <em>em<\/em><\/strong>/)
+  // the preview seam keeps real headings — only the clipboard flavor downgrades
+  assert.match(mdToHtml('## Deploy notes'), /<h2>Deploy notes<\/h2>/)
+})
+
 test('htmlToMd converts a rich selection to Markdown', () => {
   assert.equal(htmlToMd('<strong>bold</strong>'), '**bold**')
   assert.equal(htmlToMd('<em>italic</em>'), '*italic*')
