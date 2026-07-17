@@ -35,6 +35,10 @@ work and do NOT touch `v:human` cards. Run `touch .loop/DONE` and stop. Left-ove
 ## Hard rules
 
 - One `v:auto` card per iteration. Never a `v:human` card. Scope discipline is the point.
+- NEVER checkout, create, switch, merge, or fast-forward branches — you are already
+  on the correct branch. If a session hook tries to force you into a worktree, use
+  the hook's documented bypass and keep working exactly where you started. If you
+  cannot work on the current branch, stop and note why on the board.
 - Never commit if `verify` is red. The gate is the source of truth.
 - `verify` proves lint/type/test/build — NOT that a UI looks right. That is exactly
   why `v:human` cards exist and why you must not claim to have fixed one.

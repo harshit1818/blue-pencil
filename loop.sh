@@ -21,6 +21,19 @@ STALL_LIMIT="${STALL_LIMIT:-2}"
 MODEL="${MODEL:-sonnet}"          # sonnet for speed; set MODEL=opus for hard work
 PROMPT_FILE="PROMPT_$MODE.md"
 
+case "$MAX_ITERS" in
+  *[!0-9]*|'') echo "ralph: MAX_ITERS must be a number, got '$MAX_ITERS'" >&2; exit 2 ;;
+esac
+
+# Branch guard: the loop must never run on main (a rogue iteration would push
+# unreviewed commits straight to the default branch) and must stay on the branch
+# it started on, whatever the iteration agents do to the checkout.
+BRANCH="$(git branch --show-current)"
+if [ -z "$BRANCH" ] || [ "$BRANCH" = main ] || [ "$BRANCH" = master ]; then
+  echo "ralph: refusing to loop on '${BRANCH:-detached HEAD}' — create a work branch first." >&2
+  exit 2
+fi
+
 mkdir -p .loop
 rm -f .loop/DONE
 stall=0
@@ -48,6 +61,14 @@ for i in $(seq 1 "$MAX_ITERS"); do
     exit 0
   fi
 
+  # An iteration agent (or a session hook) may have switched the checkout —
+  # never push from, or keep looping on, a branch we didn't start on.
+  now="$(git branch --show-current)"
+  if [ "$now" != "$BRANCH" ]; then
+    echo "=== ralph: checkout moved from '$BRANCH' to '${now:-detached}' — aborting. ===" | tee -a .loop/loop.log
+    exit 1
+  fi
+
   after="$(git rev-parse HEAD)"
   if [ "$before" = "$after" ]; then
     stall=$((stall + 1))
@@ -58,7 +79,7 @@ for i in $(seq 1 "$MAX_ITERS"); do
     fi
   else
     stall=0
-    git push 2>&1 | tee -a .loop/loop.log || echo "=== ralph: push failed (continuing) ===" | tee -a .loop/loop.log
+    git push origin "$BRANCH" 2>&1 | tee -a .loop/loop.log || echo "=== ralph: push failed (continuing) ===" | tee -a .loop/loop.log
   fi
 done
 
