@@ -34,6 +34,12 @@ if [ -z "$BRANCH" ] || [ "$BRANCH" = main ] || [ "$BRANCH" = master ]; then
   exit 2
 fi
 
+# The auto-worktree plugin bounces headless agents into scratch worktrees,
+# which is what caused the cycle-2/3 branch chaos. It honors a per-repo skip
+# list — opt this repo out for the iteration agents only (interactive sessions
+# elsewhere keep the plugin).
+export CLAUDE_PLUGIN_OPTION_SKIP_DIRECTORIES="$(pwd)${CLAUDE_PLUGIN_OPTION_SKIP_DIRECTORIES:+,$CLAUDE_PLUGIN_OPTION_SKIP_DIRECTORIES}"
+
 mkdir -p .loop
 rm -f .loop/DONE
 stall=0

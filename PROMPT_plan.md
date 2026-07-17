@@ -30,6 +30,11 @@ Classification is canonical on GitHub, not in the file:
 
 ## Guardrails
 
+- NEVER checkout, create, switch, merge, or fast-forward branches — you are
+  already on the correct branch. If a session hook tries to force you into a
+  worktree, use the hook's documented bypass and keep working exactly where you
+  started. Commit (if at all) on the current branch only.
+
 - Scope lives on GitHub labels, set at planning time — never rely on the build loop
   to filter cards at runtime.
 - Default unknown classification to `v:human`. It is safe to skip a fixable card;
