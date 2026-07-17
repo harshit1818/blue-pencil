@@ -41,6 +41,8 @@ Regenerate the GH block below: `bash loop.sh plan` (see PROMPT_plan.md).
 - [x] #11 A5  saved bounds restored onto a missing display       · sev:medium   · v:auto
 - [ ] #12 A6  popover reload leaves rendererReady stale in main  · sev:low      · v:human
 - [ ] #13 A7  hotkey registration failure is silent to the user  · sev:low      · v:human
+- [ ] #46 A8  re-press of hotkey w/ selection shows empty state   · sev:medium   · v:human
+- [ ] #47 A9  draggable overlay via header grab strip             · sev:low      · v:human
 
 ## B — Renderer state & architecture (#14)
 
@@ -54,6 +56,7 @@ Regenerate the GH block below: `bash loop.sh plan` (see PROMPT_plan.md).
 - [ ] #22 B8  refactor: shared useTransform hook + constants     · sev:—        · v:human
 - [x] #42 B9  in-flight result lands after provider switch       · sev:low      · v:auto
 - [x] #43 B10 in-flight result lands after fresh hotkey summon   · sev:low      · v:auto
+- [ ] #45 B11 action pill highlight stuck on Proofread            · sev:low      · v:human
 
 ## C — Accessibility & user feedback (#23)
 
