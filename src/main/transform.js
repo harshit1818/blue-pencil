@@ -1,5 +1,13 @@
-import { ask, resolveActive } from './providers.js'
 import { unwrapModelText } from './markdown.js'
+
+// providers.js drags in electron + keytar, which can't load under plain
+// `node --test`. Resolving it lazily keeps this module importable in tests,
+// which inject their own `call` and never touch a real provider.
+const defaultCall = async (prompt) => {
+  const { ask, resolveActive } = await import('./providers.js')
+  const { provider, model } = resolveActive()
+  return ask({ provider, model, prompt })
+}
 
 // Prompt construction lives here, between the IPC handler and the provider
 // registry. The renderer sends only a semantic action; the active provider and
@@ -48,7 +56,10 @@ const FORMAT_INSTRUCTION =
   'not add, remove, or reorder information.\n' +
   '- Keep related sentences together in one paragraph; separate blocks with a blank ' +
   'line. Do not put every sentence on its own line.\n' +
-  '- Use a bullet or numbered list ONLY for a genuine enumeration of items.\n' +
+  '- If the text already contains a list (lines starting with -, *, •, or a number), it ' +
+  'IS a genuine enumeration: keep every item on its own line as a Markdown list. Never ' +
+  'collapse existing list items into a prose sentence.\n' +
+  '- Only create a NEW bullet or numbered list for a genuine enumeration of items.\n' +
   '- Use inline code for commands, identifiers, file paths and env vars; fenced code ' +
   'blocks for multi-line code.\n' +
   '- Use **bold** sparingly for real emphasis. Do NOT invent a heading unless the text ' +
@@ -66,12 +77,14 @@ const preserveClause = (markdown) =>
 
 // payload: { text, action: 'proofread'|'improve'|'simplify'|'summarize'|'format'|'tone', tone?, markdown? }
 // returns: { kind: 'proofread'|'rewrite', title, text, changes?, markdown }
-export async function transform({ text, action, tone, markdown = false } = {}) {
+/**
+ * @param {{ text?: string, action?: string, tone?: string, markdown?: boolean }} [payload]
+ * @param {(prompt: string) => Promise<string>} [call]
+ */
+export async function transform({ text, action, tone, markdown = false } = {}, call = defaultCall) {
   const input = (text || '').trim()
   if (!input) throw new Error('Nothing to transform.')
 
-  const { provider, model } = resolveActive()
-  const call = (prompt) => ask({ provider, model, prompt })
   const preserve = preserveClause(markdown)
 
   if (action === 'proofread') {

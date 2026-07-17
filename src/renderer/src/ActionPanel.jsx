@@ -21,7 +21,7 @@ export default function ActionPanel({
   onTone, // (tone) => void
   onCopy, // () => void
   primary, // { label, icon, onClick }
-  hint // optional string shown under the result
+  hint = null // optional string shown under the result
 }) {
   const C = useThemeColors()
 
@@ -32,7 +32,7 @@ export default function ActionPanel({
     cursor: 'pointer',
     border: `1px solid ${isPrimary || active ? C.pencil : C.line}`,
     background: isPrimary ? C.pencil : active ? C.pencilSoft : C.panel,
-    color: isPrimary ? '#fff' : active ? C.pencil : C.ink,
+    color: isPrimary ? C.onPencil : active ? C.pencil : C.ink,
     display: 'inline-flex',
     alignItems: 'center',
     gap: 6,
@@ -62,7 +62,7 @@ export default function ActionPanel({
         Assistant · {providerLabel}
       </div>
 
-      <div style={{ padding: space.md }}>
+      <div style={{ padding: space.md }} aria-busy={!!busy}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
           {actions.map((a) => (
             <button
@@ -98,6 +98,7 @@ export default function ActionPanel({
         <div style={{ borderTop: `1px solid ${C.line}`, maxHeight: 280, overflowY: 'auto' }}>
           {error && (
             <div
+              role="alert"
               style={{
                 display: 'flex',
                 gap: 7,
@@ -111,7 +112,7 @@ export default function ActionPanel({
             </div>
           )}
           {result && (
-            <div>
+            <div role="status" aria-live="polite">
               <div
                 style={{
                   display: 'flex',

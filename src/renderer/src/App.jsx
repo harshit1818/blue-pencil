@@ -1,8 +1,10 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { PenLine, X, CornerDownLeft, KeyRound, Copy } from 'lucide-react'
 import { font, radius, shadow, space } from '@tokens'
 import ActionPanel from './ActionPanel.jsx'
 import { useThemeColors } from './useTheme.js'
+import { loadDraft, saveDraft } from './draft.js'
+import { panelResult, clearPanel, stampRun, releaseBusy } from './result.js'
 
 // All visual values come from src/shared/tokens.js — nothing is hardcoded here.
 
@@ -25,9 +27,7 @@ const ERROR_NO_KEY = 'Add the key above to get started.'
 
 export default function App() {
   const C = useThemeColors()
-  const [text, setText] = useState(
-    'i thinks the new featrue is realy usefull but the way its implemented have some issue that we should to discuss before shiping it.'
-  )
+  const [text, setText] = useState(() => loadDraft(localStorage))
   const [providers, setProviders] = useState([])
   const [provider, setProvider] = useState('')
   const [models, setModels] = useState({})
@@ -41,6 +41,12 @@ export default function App() {
   const [showKeys, setShowKeys] = useState(false)
   const [keyDraft, setKeyDraft] = useState('')
   const wrapRef = useRef(null)
+  const runGen = useRef(0)
+
+  // Persist the draft so quit/relaunch (and the A3/A4 Restart path) keeps it.
+  useEffect(() => {
+    saveDraft(localStorage, text)
+  }, [text])
 
   const words = text.trim() ? text.trim().split(/\s+/).length : 0
   const providerLabel = providers.find((p) => p.id === provider)?.label || provider
@@ -85,13 +91,13 @@ export default function App() {
     }
   }, [])
 
-  // On provider change: re-check its key, clear transient UI.
+  // On provider change: re-check its key, clear transient UI. Provider comes
+  // from outside React (main-process broadcast); resetting on change is the point.
   useEffect(() => {
     if (!provider) return
     window.api?.hasKey(provider).then(setHasKey).catch(() => setHasKey(false))
-    setResult(null)
-    setMarks(null)
-    setError(null)
+    clearPanel({ result: setResult, marks: setMarks, error: setError, copied: setCopied, gen: runGen })
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setKeyDraft('')
   }, [provider])
 
@@ -133,32 +139,36 @@ export default function App() {
       setResult(null)
       setMarks(null)
       setCopied(false)
+      const fresh = stampRun(runGen)
       try {
-        await work()
+        await work(fresh)
       } catch {
         // Only true IPC/unexpected failures land here — provider errors come
-        // back as a structured envelope, not a throw.
-        setError(ERROR_GENERIC)
+        // back as a structured envelope, not a throw. A stale run's rejection
+        // must not plant an error under the new context.
+        if (fresh()) setError(ERROR_GENERIC)
       } finally {
-        setBusy(null)
+        setBusy(releaseBusy(id))
       }
     },
     [text, busy, provider]
   )
 
   const doAction = (id) =>
-    run(id, async () => {
+    run(id, async (fresh) => {
       const res = await window.api.transform({ text, action: id })
+      if (!fresh()) return
       if (!res?.ok) return showError(res)
-      setResult({ title: res.result.title, text: res.result.text, markdown: res.result.markdown })
+      setResult(panelResult(res.result))
       if (res.result.kind === 'proofread') setMarks(res.result.changes || [])
     })
 
   const reTone = (t) =>
-    run('tone-' + t, async () => {
+    run('tone-' + t, async (fresh) => {
       const res = await window.api.transform({ text, action: 'tone', tone: t })
+      if (!fresh()) return
       if (!res?.ok) return showError(res)
-      setResult({ title: res.result.title, text: res.result.text })
+      setResult(panelResult(res.result))
     })
 
   const apply = () => {
@@ -205,7 +215,7 @@ export default function App() {
     cursor: 'pointer',
     border: `1px solid ${primary || active ? C.pencil : C.line}`,
     background: primary ? C.pencil : active ? C.pencilSoft : C.panel,
-    color: primary ? '#fff' : active ? C.pencil : C.ink,
+    color: primary ? C.onPencil : active ? C.pencil : C.ink,
     display: 'inline-flex',
     alignItems: 'center',
     gap: 6,
@@ -333,6 +343,7 @@ export default function App() {
                   onChange={(e) => setKeyDraft(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && saveKey()}
                   placeholder={hasKey ? `Replace ${providerLabel} key…` : `${providerLabel} API key…`}
+                  aria-label={`${providerLabel} API key`}
                   style={fieldStyle}
                 />
                 <button style={pill(false, true)} onClick={saveKey} disabled={!keyDraft.trim()}>
@@ -340,8 +351,11 @@ export default function App() {
                 </button>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: space.sm }}>
-                <span style={{ ...sectionLabel, whiteSpace: 'nowrap' }}>Model</span>
+                <label htmlFor="model-id" style={{ ...sectionLabel, whiteSpace: 'nowrap' }}>
+                  Model
+                </label>
                 <input
+                  id="model-id"
                   value={models[provider] || ''}
                   onChange={(e) => setModel(provider, e.target.value)}
                   placeholder="model id"
@@ -369,6 +383,7 @@ export default function App() {
                 }
               }}
               placeholder="Write here…"
+              aria-label="Writing surface"
               style={{
                 width: '100%',
                 minHeight: 300,
@@ -398,7 +413,7 @@ export default function App() {
                 border: 'none',
                 cursor: 'pointer',
                 background: open ? C.ink : C.pencil,
-                color: '#fff',
+                color: open ? C.paper : C.onPencil,
                 display: 'grid',
                 placeItems: 'center',
                 boxShadow: shadow.badge,

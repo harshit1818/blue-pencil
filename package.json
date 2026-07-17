@@ -8,6 +8,9 @@
   "scripts": {
     "dev": "electron-vite dev",
     "test": "node --test",
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "eslint .",
+    "verify": "npm run typecheck && npm run lint && node scripts/secret-scan.mjs && npm test && npm run build",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "rebuild": "electron-rebuild -f -w keytar",
@@ -25,12 +28,18 @@
   },
   "devDependencies": {
     "@electron/rebuild": "^3.7.0",
+    "@types/node": "^20.19.43",
     "@vitejs/plugin-react": "^4.3.4",
     "electron": "^33.2.1",
     "electron-builder": "^25.1.8",
     "electron-vite": "^2.3.0",
+    "eslint": "^9.39.5",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.7.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "typescript": "^5.9.3",
     "vite": "^5.4.11"
   },
   "build": {

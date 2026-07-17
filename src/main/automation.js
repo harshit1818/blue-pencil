@@ -1,6 +1,7 @@
 import { execFile } from 'child_process'
 import { clipboard, systemPreferences, shell, app } from 'electron'
-import { mdToHtml, htmlToMd } from './markdown.js'
+import { mdToClipboardHtml, htmlToMd } from './markdown.js'
+import { escapeOsaString } from './osa-escape.js'
 
 // v1 "works-now" automation via osascript / System Events — no native addon.
 // Trade-off vs a native module: synthesizing keystrokes this way can trigger a
@@ -122,7 +123,7 @@ export async function grabSelection() {
 // keep today's text-only write. See docs/phase2/rich-text-format-action.md.
 function writeResult(text, markdown) {
   const value = text ?? ''
-  if (markdown) clipboard.write({ html: mdToHtml(value), text: value })
+  if (markdown) clipboard.write({ html: mdToClipboardHtml(value), text: value })
   else clipboard.writeText(value)
 }
 
@@ -134,7 +135,7 @@ export async function pasteBack(text, { markdown = false } = {}) {
   writeResult(text, markdown)
   try {
     if (stash?.frontApp) {
-      const name = String(stash.frontApp).replace(/"/g, '\\"')
+      const name = escapeOsaString(stash.frontApp)
       await osa(`tell application "System Events" to set frontmost of process "${name}" to true`)
       await sleep(120) // let activation settle before pasting
     }

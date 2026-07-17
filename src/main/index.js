@@ -1,13 +1,16 @@
-import { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, shell, nativeTheme, clipboard } from 'electron'
+import { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, shell, nativeTheme, clipboard, screen } from 'electron'
 import { join } from 'path'
 import { readFileSync, writeFileSync } from 'fs'
 import { color } from '@tokens'
 import { transform } from './transform.js'
+import { validBounds } from './window-bounds.js'
+import { installNavigationGuards } from './navigation-guard.js'
+import { guardSensitiveIpc } from './ipc-guard.js'
 import { listProviders, effectiveSettings, isValidProvider } from './providers.js'
 import { setProviderId, setModelId } from './settings.js'
 import { hasApiKey, setApiKey, seedFromEnv } from './keychain.js'
 import { registerHotkey, unregisterHotkey } from './hotkey.js'
-import { resizeOverlay, hideOverlay, markRendererReady } from './overlay.js'
+import { resizeOverlay, hideOverlay, markRendererReady, isOverlayVisible } from './overlay.js'
 import {
   pasteBack,
   writeResultToClipboard,
@@ -20,6 +23,17 @@ const HOTKEY_LABEL = "⌘⇧'"
 
 let mainWindow = null
 let tray = null
+
+// Shared definition of "our own page" for the navigation guard (#37) and the
+// sensitive-IPC guard (#39).
+const guardOpts = {
+  devOrigin: process.env.ELECTRON_RENDERER_URL || null,
+  appRoot: join(__dirname, '..')
+}
+
+// Guard every window (main + overlay) before any is created: in-page links in
+// model output must never top-level-navigate a window that carries window.api.
+installNavigationGuards(app, shell, guardOpts)
 
 function broadcastSettings() {
   const snapshot = effectiveSettings()
@@ -35,7 +49,8 @@ function boundsFile() {
 }
 function loadBounds() {
   try {
-    return JSON.parse(readFileSync(boundsFile(), 'utf8'))
+    const saved = JSON.parse(readFileSync(boundsFile(), 'utf8'))
+    return validBounds(saved, screen.getAllDisplays())
   } catch {
     return null
   }
@@ -78,11 +93,6 @@ function createWindow() {
     }
   })
 
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url)
-    return { action: 'deny' }
-  })
-
   if (process.env.ELECTRON_RENDERER_URL) {
     mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL)
   } else {
@@ -108,6 +118,7 @@ function createTray() {
   tray.setTitle('✎')
 
   // Login item only makes sense for the installed app, not the dev binary.
+  /** @type {import('electron').MenuItemConstructorOptions[]} */
   const loginItem = app.isPackaged
     ? [
         {
@@ -119,21 +130,21 @@ function createTray() {
       ]
     : []
 
-  tray.setContextMenu(
-    Menu.buildFromTemplate([
-      { label: 'Open Blue Pencil', click: showMainWindow },
-      { label: `Shortcut: ${HOTKEY_LABEL}`, enabled: false },
-      ...loginItem,
-      { type: 'separator' },
-      {
-        label: 'Quit Blue Pencil',
-        click: () => {
-          app.isQuitting = true
-          app.quit()
-        }
+  /** @type {import('electron').MenuItemConstructorOptions[]} */
+  const template = [
+    { label: 'Open Blue Pencil', click: showMainWindow },
+    { label: `Shortcut: ${HOTKEY_LABEL}`, enabled: false },
+    ...loginItem,
+    { type: 'separator' },
+    {
+      label: 'Quit Blue Pencil',
+      click: () => {
+        app.isQuitting = true
+        app.quit()
       }
-    ])
-  )
+    }
+  ]
+  tray.setContextMenu(Menu.buildFromTemplate(template))
 }
 
 app.whenReady().then(async () => {
@@ -154,7 +165,6 @@ app.whenReady().then(async () => {
   })
   ipcMain.handle('providers:list', () => listProviders())
   ipcMain.handle('key:has', (_event, provider) => hasApiKey(provider))
-  ipcMain.handle('key:set', (_event, provider, key) => setApiKey(provider, key))
 
   ipcMain.handle('settings:get', () => effectiveSettings())
   ipcMain.handle('settings:setProvider', (_event, id) => {
@@ -183,14 +193,18 @@ app.whenReady().then(async () => {
     writeResultToClipboard(text, markdown)
   )
 
-  // v1 deliver seam (granted): paste the result into the source app, then dismiss.
-  ipcMain.handle('hotkey:pasteBack', async (_event, text, markdown) => {
-    await pasteBack(text, { markdown })
-    hideOverlay()
+  // Destructive endpoints (key:set, hotkey:pasteBack, accessibility:relaunch)
+  // validate the sender frame — and overlay visibility for paste-back — in the
+  // guard, not here.
+  guardSensitiveIpc(ipcMain, guardOpts, {
+    setApiKey,
+    pasteBack,
+    hideOverlay,
+    isOverlayVisible,
+    relaunchApp
   })
   ipcMain.handle('accessibility:request', () => requestAccessibility())
   ipcMain.on('accessibility:openSettings', () => openAccessibilitySettings())
-  ipcMain.on('accessibility:relaunch', () => relaunchApp())
 
   registerHotkey()
   createTray()

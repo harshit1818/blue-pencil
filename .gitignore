@@ -29,6 +29,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# --- Ralph loop transient state ---
+.loop/
+
 # --- OS / editor cruft ---
 .DS_Store
 .idea/

@@ -4,6 +4,7 @@ import { font, radius } from '@tokens'
 import ActionPanel from './ActionPanel.jsx'
 import Markdown from './Markdown.jsx'
 import { useThemeColors } from './useTheme.js'
+import { panelResult, clearPanel, stampRun, releaseBusy } from './result.js'
 
 // The hotkey overlay's container: a read-only preview of the grabbed text plus
 // the shared ActionPanel. Floats over other apps; the active provider comes from
@@ -44,6 +45,7 @@ export default function HotkeyPopover() {
   const [needsRestart, setNeedsRestart] = useState(false)
   const rootRef = useRef(null)
   const onKeyRef = useRef(null)
+  const runGen = useRef(0)
 
   const providerLabel = providers.find((p) => p.id === provider)?.label || provider
   const words = captured.trim() ? captured.trim().split(/\s+/).length : 0
@@ -53,16 +55,22 @@ export default function HotkeyPopover() {
     const applySettings = (s) => {
       if (s) setProvider(s.provider || '')
     }
+    // #43: sibling of #42 — the show-reset routes through clearPanel so it also
+    // bumps the run generation; a transform still pending from the previous
+    // summon reads stale and its result never lands under the new capture.
     const unsubShow = window.api?.onPopoverShow?.(({ text, accessibility: a, markdown: m }) => {
       setCaptured(text || '')
       setCapturedMarkdown(Boolean(m))
       setAccessibility(Boolean(a))
-      setBusy(null)
-      setError(null)
-      setResult(null)
-      setMarks(null)
-      setCopied(false)
-      setHint(null)
+      clearPanel({
+        result: setResult,
+        marks: setMarks,
+        error: setError,
+        copied: setCopied,
+        hint: setHint,
+        busy: setBusy,
+        gen: runGen
+      })
       setNeedsRestart(false)
     })
     const unsubSettings = window.api?.onSettingsChanged?.(applySettings)
@@ -83,6 +91,13 @@ export default function HotkeyPopover() {
       if (unsubSettings) unsubSettings()
     }
   }, [])
+
+  // #21: mirror App — a provider switch in the main window invalidates the
+  // overlay's stale result instead of leaving it deliverable under the new label.
+  useEffect(() => {
+    if (!provider) return
+    clearPanel({ result: setResult, marks: setMarks, error: setError, copied: setCopied, hint: setHint, gen: runGen })
+  }, [provider])
 
   // Keyboard-first: Escape dismisses; Enter runs the primary; 1-4 run the four
   // actions. A stable wrapper calls the latest handler (held in a ref) so it
@@ -117,35 +132,39 @@ export default function HotkeyPopover() {
       setMarks(null)
       setCopied(false)
       setHint(null)
+      const fresh = stampRun(runGen)
       try {
-        await work()
+        await work(fresh)
       } catch {
-        setError(ERROR_GENERIC)
+        // A stale run's rejection must not plant an error under the new context.
+        if (fresh()) setError(ERROR_GENERIC)
       } finally {
-        setBusy(null)
+        setBusy(releaseBusy(id))
       }
     },
     [captured, busy]
   )
 
   const doAction = (id) =>
-    run(id, async () => {
+    run(id, async (fresh) => {
       const res = await window.api.transform({ text: captured, action: id, markdown: capturedMarkdown })
+      if (!fresh()) return
       if (!res?.ok) return showError(res)
-      setResult({ title: res.result.title, text: res.result.text, markdown: res.result.markdown })
+      setResult(panelResult(res.result))
       if (res.result.kind === 'proofread') setMarks(res.result.changes || [])
     })
 
   const reTone = (t) =>
-    run('tone-' + t, async () => {
+    run('tone-' + t, async (fresh) => {
       const res = await window.api.transform({
         text: captured,
         action: 'tone',
         tone: t,
         markdown: capturedMarkdown
       })
+      if (!fresh()) return
       if (!res?.ok) return showError(res)
-      setResult({ title: res.result.title, text: res.result.text, markdown: res.result.markdown })
+      setResult(panelResult(res.result))
     })
 
   // v1 DELIVER seam. Granted: paste back into the source app (main does it, then
@@ -169,7 +188,9 @@ export default function HotkeyPopover() {
     setNeedsRestart(true)
   }
 
-  // Reassigned every render so the keydown wrapper always sees fresh state.
+  // Reassigned every render so the keydown wrapper always sees fresh state:
+  // a stable listener reads this ref instead of being resubscribed every render.
+  // eslint-disable-next-line react-hooks/refs
   onKeyRef.current = (e) => {
     if (e.key === 'Escape') {
       window.api?.popoverDismiss?.()

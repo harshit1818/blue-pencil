@@ -25,7 +25,18 @@ const md = new Marked({ gfm: true, breaks: true })
 md.use({ renderer: { html: htmlEscaper } })
 
 export function mdToHtml(source) {
-  return md.parse(String(source ?? '')).trim()
+  return md.parse(String(source ?? ''), { async: false }).trim()
+}
+
+// Clipboard variant of mdToHtml for the deliver seam. Slack's composer collapses
+// the gap between adjacent <p> blocks to a single newline on paste, gluing
+// paragraphs together (#4). Merging p→p boundaries into an explicit <br><br>
+// keeps the blank line in Slack and renders the same in margin-honoring editors
+// (Gmail, Notion, Word). Other block boundaries (lists, code, headings) are left
+// alone. marked emits exactly '</p>\n<p>' between paragraphs, and any literal
+// tag text inside a paragraph is HTML-escaped, so the replace can't misfire.
+export function mdToClipboardHtml(source) {
+  return mdToHtml(source).replace(/<\/p>\n<p>/g, '<br><br>')
 }
 
 // HTML -> Markdown for the grab seam: a rich selection populates the clipboard's
