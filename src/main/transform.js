@@ -60,8 +60,13 @@ const FORMAT_INSTRUCTION =
   'IS a genuine enumeration: keep every item on its own line as a Markdown list. Never ' +
   'collapse existing list items into a prose sentence.\n' +
   '- Only create a NEW bullet or numbered list for a genuine enumeration of items.\n' +
-  '- Use inline code for commands, identifiers, file paths and env vars; fenced code ' +
-  'blocks for multi-line code.\n' +
+  '- If the text contains a bare (unfenced) run of multi-line code, a stack trace, or ' +
+  'log output — signs include indented lines, `File "...", line N` frames, or ' +
+  'error/exception lines — wrap that WHOLE run in a single fenced code block, verbatim: ' +
+  'keep every line break and all leading indentation exactly as-is.\n' +
+  '- Use inline code for commands, identifiers, file paths and env vars mentioned in ' +
+  'prose; fenced code blocks for multi-line code. Never split lines that belong to a ' +
+  'code block, stack trace, or log into inline-code fragments.\n' +
   '- Use **bold** sparingly for real emphasis. Do NOT invent a heading unless the text ' +
   'clearly has a title.\n' +
   'Output GitHub-flavored Markdown only — no HTML, no commentary.'

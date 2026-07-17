@@ -122,7 +122,14 @@ Regenerate the GH block below: `bash loop.sh plan` (see PROMPT_plan.md).
       into prose; the "genuine enumeration" judgment applies only to creating
       NEW lists. Prompt-shape test in test/transform.test.mjs. Live Slack
       confirmation rides on #44, v:human.)
-- [ ] #2  Format shreds bare multi-line code into inline frags  · bug          · v:auto
+- [x] #2  Format shreds bare multi-line code into inline frags  · bug          · v:auto
+      (Prompt-level like #3: FORMAT_INSTRUCTION gains a bare-block rule — detect
+      an unfenced multi-line code / traceback / log run and wrap the WHOLE run in
+      one fence, verbatim, leading indentation intact — placed before the
+      inline-code rule, which now applies to prose only and never splits block
+      lines into inline fragments. Prompt-shape test in test/transform.test.mjs.
+      Live confirmation rides on #44, v:human. Side fix: eslint now ignores
+      .claude/** so stale session worktrees can't fail verify.)
 - [ ] #5  Format: deliberate auto-inline-code & Slack headers   · enhancement  · v:auto
 - [ ] #1  Overlay cursor-anchored, clipped near screen edges    · —            · v:human
 

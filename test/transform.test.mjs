@@ -66,6 +66,26 @@ test('format prompt forbids collapsing existing bullet lists into prose (#3)', a
   assert.match(calls[0], /Only create a NEW bullet or numbered list/)
 })
 
+test('format prompt fences bare multi-line code verbatim instead of shredding it (#2)', async () => {
+  const { calls, call } = mock('out')
+  const traceback =
+    'getting this error when I run the job\n' +
+    'Traceback (most recent call last):\n' +
+    '  File "worker.py", line 42, in run\n' +
+    '    process(batch)\n' +
+    "KeyError: 'tenant_id'\n" +
+    'any idea?'
+  await transform({ text: traceback, action: 'format' }, call)
+  assert.match(calls[0], /wrap that WHOLE run in a single fenced code block, verbatim/)
+  assert.match(calls[0], /keep every line break and all leading indentation exactly as-is/)
+  assert.match(calls[0], /Never split lines that belong to a code block, stack trace, or log into inline-code fragments/)
+  // the bare-block rule must come before the inline-code rule so detection wins
+  assert.ok(
+    calls[0].indexOf('bare (unfenced) run of multi-line code') <
+      calls[0].indexOf('Use inline code for commands')
+  )
+})
+
 test('tone requires a tone and titles the result with it', async () => {
   const { calls, call } = mock('out')
   await assert.rejects(transform({ text: 'hi', action: 'tone' }, call), /No tone specified/)
