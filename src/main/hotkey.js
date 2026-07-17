@@ -35,6 +35,7 @@ async function onFire() {
 export function registerHotkey() {
   const ok = globalShortcut.register(ACCELERATOR, onFire)
   log(`registerHotkey ${ACCELERATOR} -> ${ok ? 'ok' : 'FAILED (already taken?)'}`)
+  return ok
 }
 
 export function unregisterHotkey() {

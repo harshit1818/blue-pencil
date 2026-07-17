@@ -10,7 +10,13 @@ import { listProviders, effectiveSettings, isValidProvider } from './providers.j
 import { setProviderId, setModelId } from './settings.js'
 import { hasApiKey, setApiKey, seedFromEnv } from './keychain.js'
 import { registerHotkey, unregisterHotkey } from './hotkey.js'
-import { resizeOverlay, hideOverlay, markRendererReady, isOverlayVisible } from './overlay.js'
+import {
+  resizeOverlay,
+  hideOverlay,
+  markRendererReady,
+  isOverlayVisible,
+  suppressOverlayBlurDismiss
+} from './overlay.js'
 import {
   pasteBack,
   writeResultToClipboard,
@@ -111,7 +117,7 @@ function showMainWindow() {
   mainWindow.focus()
 }
 
-function createTray() {
+function createTray(hotkeyOk = true) {
   // Text-glyph menu-bar item (a designed template PNG is a later polish).
   tray = new Tray(nativeImage.createEmpty())
   tray.setToolTip('Blue Pencil')
@@ -133,7 +139,10 @@ function createTray() {
   /** @type {import('electron').MenuItemConstructorOptions[]} */
   const template = [
     { label: 'Open Blue Pencil', click: showMainWindow },
-    { label: `Shortcut: ${HOTKEY_LABEL}`, enabled: false },
+    {
+      label: hotkeyOk ? `Shortcut: ${HOTKEY_LABEL}` : `Shortcut ${HOTKEY_LABEL} unavailable (in use)`,
+      enabled: false
+    },
     ...loginItem,
     { type: 'separator' },
     {
@@ -204,10 +213,13 @@ app.whenReady().then(async () => {
     relaunchApp
   })
   ipcMain.handle('accessibility:request', () => requestAccessibility())
-  ipcMain.on('accessibility:openSettings', () => openAccessibilitySettings())
+  ipcMain.on('accessibility:openSettings', () => {
+    suppressOverlayBlurDismiss() // keep the overlay's Restart footer up when Settings steals focus (#9)
+    openAccessibilitySettings()
+  })
 
-  registerHotkey()
-  createTray()
+  const hotkeyOk = registerHotkey()
+  createTray(hotkeyOk)
   createWindow() // created hidden; summoned via the tray or by being needed
 
   nativeTheme.on('updated', () => mainWindow?.setBackgroundColor(paperFor()))
@@ -215,6 +227,13 @@ app.whenReady().then(async () => {
   // First run (no key for any provider) → open the window so key entry works.
   const anyKey = (await Promise.all(listProviders().map((p) => hasApiKey(p.id)))).some(Boolean)
   if (!anyKey) showMainWindow()
+})
+
+// Fires on every quit path (tray, relaunch/Restart, macOS logout/shutdown, a
+// future auto-updater) — so the main window's hide-on-close veto lifts for all
+// of them, not just the tray Quit item.
+app.on('before-quit', () => {
+  app.isQuitting = true
 })
 
 app.on('window-all-closed', () => {

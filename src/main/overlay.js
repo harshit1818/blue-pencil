@@ -9,6 +9,7 @@ import { log } from './log.js'
 
 let win = null
 let rendererReady = false // the popover renderer has mounted + attached its listeners
+let blurDismissSuppressed = false // held up on purpose during the accessibility-enable flow
 let pendingText = null // text captured for a summon not yet delivered to the renderer
 let pendingAccessibility = false // whether that summon's grab was the auto (v1) path
 let pendingMarkdown = false // whether the captured text is Markdown (rich grab — Case 1)
@@ -35,11 +36,27 @@ function create() {
   })
   win.setAlwaysOnTop(true, 'screen-saver') // sit above fullscreen content
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
-  win.on('blur', hideOverlay) // clicking into another app dismisses
+  // Clicking into another app dismisses — except mid enable-flow, where opening
+  // System Settings blurs us and would otherwise hide the "Restart to enable"
+  // footer before it can be read (#9).
+  win.on('blur', () => {
+    if (blurDismissSuppressed) return
+    hideOverlay()
+  })
   win.on('closed', () => {
     win = null
     rendererReady = false
     pendingText = null
+  })
+  // A webContents reload (crash recovery, dev HMR, DevTools ⌘R) detaches the
+  // renderer's listeners, so readiness must track the load lifecycle, not just
+  // the window's — otherwise the next summon flushes into a dead renderer and the
+  // capture is dropped (#12).
+  win.webContents.on('did-start-loading', () => {
+    rendererReady = false
+  })
+  win.webContents.on('render-process-gone', () => {
+    rendererReady = false
   })
 
   if (process.env.ELECTRON_RENDERER_URL) {
@@ -95,6 +112,7 @@ export function markRendererReady() {
 
 export function showOverlayAtCursor(text, accessibility, markdown) {
   log(`showOverlayAtCursor (winExists=${Boolean(win)}, rendererReady=${rendererReady})`)
+  blurDismissSuppressed = false // a fresh summon resumes normal blur-to-dismiss
   if (!win) create()
   pendingText = text
   pendingAccessibility = Boolean(accessibility)
@@ -103,9 +121,16 @@ export function showOverlayAtCursor(text, accessibility, markdown) {
 }
 
 export function hideOverlay() {
+  blurDismissSuppressed = false // Escape / toggle / paste-back is an explicit dismiss
   if (win && win.isVisible()) win.hide()
   // A grab that was never pasted should leave the user's clipboard as it was.
   restoreClipboardIfPending()
+}
+
+// Called (over IPC) when the user starts the accessibility-enable flow: opening
+// System Settings blurs the overlay, but the footer it just revealed must stay up.
+export function suppressOverlayBlurDismiss() {
+  blurDismissSuppressed = true
 }
 
 export function resizeOverlay(w, h) {
