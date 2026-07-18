@@ -21,7 +21,21 @@ function writeClaudeStub(bin) {
   writeExecutable(
     join(bin, 'claude'),
     `#!/usr/bin/env bash
-cat >> .loop/claude-stdin.log   # capture the piped prompt so tests can assert on it
+input="$(cat)"   # consume the piped prompt
+printf '%s' "$input" >> .loop/claude-stdin.log   # capture so tests can assert on it
+# The review + fix agents are separate claude calls (their prompts carry markers).
+# They must NOT run the iteration action.
+case "$input" in
+  *RALPH-PR-REVIEW*)
+    c=.loop/review-round; n="$(cat "$c" 2>/dev/null || echo 0)"; echo $((n + 1)) > "$c"
+    if [ "$n" -eq 0 ] && [ "\${STUB_OBJECTIVE:-0}" = 1 ]; then
+      echo '{"verdict":"NEEDS-WORK","summary":"stub","findings":[{"category":"standards","severity":"minor","location":"a.js:1","issue":"x","fix":"y"},{"category":"product","severity":"major","location":"b.js:2","issue":"p"}]}'
+    else
+      echo '{"verdict":"LGTM","summary":"stub","findings":[{"category":"product","severity":"minor","location":"b.js:2","issue":"p"}]}'
+    fi
+    exit 0 ;;
+  *RALPH-FIX*) echo applied >> fix-applied.txt; exit 0 ;;
+esac
 action="\${CLAUDE_ACTION:-noop}"
 case "$action" in
   noop)   exit 0 ;;
@@ -41,7 +55,25 @@ esac
 }
 
 function writeGhStub(bin, jsonPath) {
-  writeExecutable(join(bin, 'gh'), `#!/usr/bin/env bash\ncat ${jsonPath}\n`)
+  // Arg-aware: `issue list` feeds regen-board; `pr view/create/comment` drive the
+  // draft-PR + review flow. Every call is logged so tests can assert the wiring.
+  writeExecutable(
+    join(bin, 'gh'),
+    `#!/usr/bin/env bash
+echo "gh $*" >> .loop/gh-calls.log 2>/dev/null || true
+case "$1" in
+  issue) cat ${jsonPath} ;;
+  pr)
+    case "$2" in
+      view)    [ -f .loop/pr-exists ] && exit 0 || exit 1 ;;
+      create)  : > .loop/pr-exists; echo "https://example.test/pr/1" ;;
+      comment) : ;;
+      *) : ;;
+    esac ;;
+  *) : ;;
+esac
+`,
+  )
 }
 
 export function setupSandbox({ issues = DEFAULT_ISSUES, withOrigin = true } = {}) {
@@ -57,7 +89,9 @@ export function setupSandbox({ issues = DEFAULT_ISSUES, withOrigin = true } = {}
   mkdirSync(join(dir, 'scripts'))
   cpSync(join(ROOT, 'loop.sh'), join(dir, 'loop.sh'))
   cpSync(join(ROOT, 'PROMPT_build.md'), join(dir, 'PROMPT_build.md'))
+  cpSync(join(ROOT, 'PROMPT_review.md'), join(dir, 'PROMPT_review.md'))
   cpSync(join(ROOT, 'scripts', 'regen-board.mjs'), join(dir, 'scripts', 'regen-board.mjs'))
+  cpSync(join(ROOT, 'scripts', 'review-triage.mjs'), join(dir, 'scripts', 'review-triage.mjs'))
   writeFileSync(join(dir, 'IMPLEMENTATION_PLAN.md'), '# board\n<!-- GH:BEGIN -->\n<!-- GH:END -->\n')
 
   const env = { ...process.env, PATH: `${bin}:${process.env.PATH}` }
@@ -92,6 +126,7 @@ export function setupSandbox({ issues = DEFAULT_ISSUES, withOrigin = true } = {}
     },
     read: (rel) => readFileSync(join(dir, rel), 'utf8'),
     exists: (rel) => existsSync(join(dir, rel)),
+    gitLog: () => execFileSync('git', ['log', '--pretty=%s'], { cwd: dir, encoding: 'utf8' }),
     writeFile: (rel, content) => writeFileSync(join(dir, rel), content),
     commitAll: (msg) => {
       git(dir, 'add', '-A')

@@ -37,6 +37,72 @@ test('without ONLY, no target line is injected', () => {
   assert.ok(!sb.read('.loop/claude-stdin.log').includes('Work ONLY on GitHub issue'))
 })
 
+// The sandbox origin only has the `work` branch, so point the PR base at it.
+const PR_ENV = { BASE: 'work' }
+
+test('a run with pushed work opens a draft PR and posts an independent review', () => {
+  const sb = setupSandbox()
+  sb.run(1, { CLAUDE_ACTION: 'commit', ...PR_ENV }) // commits + pushes, then maxiters -> finish
+  const gh = sb.read('.loop/gh-calls.log')
+  assert.match(gh, /pr create --draft/)
+  assert.match(gh, /pr comment/)
+  assert.ok(sb.exists('.loop/review-comment.md'), 'the triaged review comment must be captured')
+  assert.match(sb.read('.loop/review-comment.md'), /Independent review — LGTM/)
+})
+
+test('remediation: an objective finding triggers a bounded auto-fix that re-verifies', () => {
+  const sb = setupSandbox()
+  sb.run(1, { CLAUDE_ACTION: 'commit', STUB_OBJECTIVE: '1', VERIFY_CMD: 'true', REMEDIATION_ROUNDS: '2', ...PR_ENV })
+  assert.ok(sb.exists('fix-applied.txt'), 'the fix agent must have run on the objective finding')
+  assert.match(sb.gitLog(), /fix\(review\): address standards\/correctness findings \(round 1\)/)
+  assert.match(sb.read('.loop/loop.log'), /remediation round 1/)
+  // the product finding is surfaced, not auto-fixed
+  assert.ok(sb.exists('.loop/product.md') && sb.read('.loop/product.md').includes('b.js:2'))
+})
+
+test('remediation: a fix that fails verify is reverted and left for a human', () => {
+  const sb = setupSandbox()
+  sb.run(1, { CLAUDE_ACTION: 'commit', STUB_OBJECTIVE: '1', VERIFY_CMD: 'false', REMEDIATION_ROUNDS: '2', ...PR_ENV })
+  assert.match(sb.read('.loop/loop.log'), /remediation verify RED/)
+  assert.ok(!sb.gitLog().includes('fix(review)'), 'a red fix must not be committed')
+})
+
+test('no objective findings: no fix pass, product checklist still posted', () => {
+  const sb = setupSandbox()
+  sb.run(1, { CLAUDE_ACTION: 'commit', VERIFY_CMD: 'true', ...PR_ENV }) // STUB_OBJECTIVE unset
+  assert.ok(!sb.gitLog().includes('fix(review)'), 'no fix commit without objective findings')
+  assert.ok(!sb.read('.loop/loop.log').includes('remediation round'), 'no remediation round')
+  assert.ok(sb.exists('.loop/product.md'))
+})
+
+test('AUTO_PR=0 disables PR creation (and therefore the review)', () => {
+  const sb = setupSandbox()
+  sb.run(1, { CLAUDE_ACTION: 'commit', AUTO_PR: '0', ...PR_ENV })
+  const gh = sb.read('.loop/gh-calls.log')
+  assert.ok(!gh.includes('pr create'), 'no PR should be opened when AUTO_PR=0')
+  assert.ok(!gh.includes('pr comment'), 'no review without a PR')
+})
+
+test('AUTO_REVIEW=0 opens the PR but posts no review comment', () => {
+  const sb = setupSandbox()
+  sb.run(1, { CLAUDE_ACTION: 'commit', AUTO_REVIEW: '0', ...PR_ENV })
+  const gh = sb.read('.loop/gh-calls.log')
+  assert.match(gh, /pr create --draft/)
+  assert.ok(!gh.includes('pr comment'), 'no review comment when AUTO_REVIEW=0')
+})
+
+test('a run that pushes nothing opens no PR', () => {
+  // Only a v:human card -> board clear immediately, no commits pushed.
+  const issues = [
+    { number: 6, title: 'A — Section', labels: [{ name: 'epic:A' }] },
+    { number: 101, title: 'A2 — human only', labels: [{ name: 'epic:A' }, { name: 'severity:low' }, { name: 'verify:human' }] },
+  ]
+  const sb = setupSandbox({ issues })
+  sb.run(2, { CLAUDE_ACTION: 'commit', ...PR_ENV })
+  const gh = sb.exists('.loop/gh-calls.log') ? sb.read('.loop/gh-calls.log') : ''
+  assert.ok(!gh.includes('pr create'), 'no PR when the run produced no pushed work')
+})
+
 test('board clear (no [ ] v:auto cards) exits OK without calling the agent', () => {
   // Only a v:human card open -> the projected board has no [ ] v:auto card.
   const issues = [
