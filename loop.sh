@@ -3,8 +3,11 @@
 # iteration; progress lives in git + IMPLEMENTATION_PLAN.md, not in context.
 #
 # Usage:
-#   ./loop.sh [MAX_ITERS]        # build mode (default 10 iterations)
-#   ./loop.sh plan [MAX_ITERS]   # planning mode: (re)write the plan, no code
+#   ./loop.sh [MAX_ITERS]        # default 10 iterations
+#
+# The board (IMPLEMENTATION_PLAN.md) is a projection of GitHub labels, regenerated
+# deterministically by scripts/regen-board.mjs at the top of every run. There is no
+# separate plan mode — a script does that job for free instead of a plan-mode agent.
 #
 # Three independent stops guard against circles and token waste:
 #   1. MAX_ITERS      - hard cap, always terminates.
@@ -14,12 +17,10 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-MODE=build
-if [ "${1:-}" = "plan" ]; then MODE=plan; shift; fi
 MAX_ITERS="${1:-10}"
 STALL_LIMIT="${STALL_LIMIT:-2}"
 MODEL="${MODEL:-sonnet}"          # sonnet for speed; set MODEL=opus for hard work
-PROMPT_FILE="PROMPT_$MODE.md"
+PROMPT_FILE="PROMPT_build.md"
 
 case "$MAX_ITERS" in
   *[!0-9]*|'') echo "ralph: MAX_ITERS must be a number, got '$MAX_ITERS'" >&2; exit 2 ;;
@@ -44,20 +45,27 @@ mkdir -p .loop
 rm -f .loop/DONE
 stall=0
 
+# Regenerate the board from GitHub labels before working it. Idempotent: commits
+# (and pushes) only when GitHub has actually moved since the last run — otherwise a
+# no-op. This is what plan mode used to do, minus the agent and the format drift.
+node scripts/regen-board.mjs 2>&1 | tee -a .loop/loop.log
+if ! git diff --quiet -- IMPLEMENTATION_PLAN.md; then
+  git commit -q -m "docs(plan): regenerate board from GitHub labels" -- IMPLEMENTATION_PLAN.md
+  git push origin "$BRANCH" 2>&1 | tee -a .loop/loop.log || echo "=== ralph: board push failed (continuing) ===" | tee -a .loop/loop.log
+fi
+
 for i in $(seq 1 "$MAX_ITERS"); do
-  # Deterministic end: in build mode, stop the moment no actionable cards remain.
-  # v:human cards stay on the board forever, so "board clear" means no [ ] v:auto
-  # cards — not an empty board. This guarantees the loop terminates.
-  if [ "$MODE" = build ]; then
-    todo=$(grep -cE '^- \[ \].*v:auto' IMPLEMENTATION_PLAN.md || true)
-    if [ "${todo:-0}" -eq 0 ]; then
-      echo "=== ralph: no [ ] v:auto cards left — board clear, stopping. ===" | tee -a .loop/loop.log
-      exit 0
-    fi
+  # Deterministic end: stop the moment no actionable cards remain. v:human cards stay
+  # on the board forever, so "board clear" means no [ ] v:auto cards — not an empty
+  # board. This guarantees the loop terminates.
+  todo=$(grep -cE '^- \[ \].*v:auto' IMPLEMENTATION_PLAN.md || true)
+  if [ "${todo:-0}" -eq 0 ]; then
+    echo "=== ralph: no [ ] v:auto cards left — board clear, stopping. ===" | tee -a .loop/loop.log
+    exit 0
   fi
 
   before="$(git rev-parse HEAD)"
-  echo "=== ralph $MODE iteration $i/$MAX_ITERS (${todo:-?} v:auto todo, model=$MODEL, stall=$stall) ===" | tee -a .loop/loop.log
+  echo "=== ralph iteration $i/$MAX_ITERS (${todo:-?} v:auto todo, model=$MODEL, stall=$stall) ===" | tee -a .loop/loop.log
 
   cat "$PROMPT_FILE" | claude -p --dangerously-skip-permissions --model "$MODEL" 2>&1 \
     | tee -a .loop/loop.log
