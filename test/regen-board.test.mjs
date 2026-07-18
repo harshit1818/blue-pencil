@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { renderBoard, renderGhBlock, parseMarkers } from '../scripts/regen-board.mjs'
+import { renderBoard, renderGhBlock, parseMarkers, nextIssue } from '../scripts/regen-board.mjs'
 
 const issue = (number, title, ...labels) => ({ number, title, labels: labels.map((name) => ({ name })) })
 
@@ -79,4 +79,31 @@ test('parseMarkers reads markers by issue number', () => {
   assert.equal(m.get(11), 'x')
   assert.equal(m.get(7), '!')
   assert.equal(m.get(51), undefined)
+})
+
+const NEXT_ISSUES = [
+  issue(6, 'A — Section', 'epic:A'),
+  issue(100, 'A1 — high card', 'epic:A', 'severity:high', 'verify:auto'),
+  issue(102, 'A2 — medium card', 'epic:A', 'severity:medium', 'verify:auto'),
+  issue(101, 'A3 — human card', 'epic:A', 'severity:critical', 'verify:human'),
+]
+const EMPTY_BOARD = '# board\n<!-- GH:BEGIN -->\n<!-- GH:END -->\n'
+
+test('nextIssue picks the top v:auto card in board order', () => {
+  assert.equal(nextIssue(NEXT_ISSUES, EMPTY_BOARD), 100) // severity high before medium
+})
+
+test('nextIssue honours the skip list', () => {
+  assert.equal(nextIssue(NEXT_ISSUES, EMPTY_BOARD, new Set([100])), 102)
+  assert.equal(nextIssue(NEXT_ISSUES, EMPTY_BOARD, new Set([100, 102])), null)
+})
+
+test('nextIssue never picks v:human cards', () => {
+  const humansOnly = NEXT_ISSUES.filter((i) => i.number !== 100 && i.number !== 102)
+  assert.equal(nextIssue(humansOnly, EMPTY_BOARD), null) // #101 is critical but v:human
+})
+
+test('nextIssue skips non-[ ] markers (blocked/in-progress/done)', () => {
+  const prev = '# board\n<!-- GH:BEGIN -->\n- [!] #100  A1  high card  · sev:high · v:auto\n<!-- GH:END -->\n'
+  assert.equal(nextIssue(NEXT_ISSUES, prev), 102)
 })

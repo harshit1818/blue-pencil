@@ -109,11 +109,27 @@ export function renderBoard(prevContent, issues) {
   return [...lines.slice(0, b + 1), '', block, '', ...lines.slice(e)].join('\n')
 }
 
-function main() {
+// The driver's picker: same rendering as the board regen, so "top card" means the
+// same thing everywhere (epic sections A..Z, severity within). Read-only — the
+// driver runs this on main, where nothing may commit.
+export function nextIssue(issues, prevContent, skip = new Set()) {
+  const block = renderGhBlock(issues, prevContent)
+  for (const m of block.matchAll(/^- \[ \] #(\d+)\b.*· v:auto$/gm)) {
+    const n = Number(m[1])
+    if (!skip.has(n)) return n
+  }
+  return null
+}
+
+function fetchIssues() {
   const json = execFileSync('gh', ['issue', 'list', '--state', 'open', '--limit', '200', '--json', 'number,title,labels'], {
     encoding: 'utf8',
   })
-  const issues = JSON.parse(json)
+  return JSON.parse(json)
+}
+
+function main() {
+  const issues = fetchIssues()
   const path = 'IMPLEMENTATION_PLAN.md'
   const prev = readFileSync(path, 'utf8')
   const next = renderBoard(prev, issues)
@@ -125,4 +141,13 @@ function main() {
   console.error('regen-board: IMPLEMENTATION_PLAN.md updated')
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) main()
+if (import.meta.url === `file://${process.argv[1]}`) {
+  if (process.argv[2] === 'next') {
+    const i = process.argv.indexOf('--skip')
+    const skip = new Set(i === -1 ? [] : process.argv[i + 1].split(',').map(Number))
+    const n = nextIssue(fetchIssues(), readFileSync('IMPLEMENTATION_PLAN.md', 'utf8'), skip)
+    if (n != null) process.stdout.write(String(n))
+  } else {
+    main()
+  }
+}
