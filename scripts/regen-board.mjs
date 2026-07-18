@@ -15,7 +15,7 @@ const BEGIN = '<!-- GH:BEGIN'
 const END = '<!-- GH:END'
 const SEV_ORDER = { critical: 0, high: 1, medium: 2, low: 3 }
 
-const labelSet = (issue) => new Set(issue.labels.map((l) => (typeof l === 'string' ? l : l.name)))
+const labelSet = (issue) => new Set(issue.labels.map((l) => l.name))
 const epicOf = (labels) => [...labels].find((n) => n.startsWith('epic:'))?.slice(5)
 const sevOf = (labels) => [...labels].find((n) => n.startsWith('severity:'))?.slice(9)
 const verifyOf = (labels) => [...labels].find((n) => n.startsWith('verify:'))?.slice(7)

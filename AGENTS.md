@@ -8,8 +8,9 @@ loaded every iteration.
 
 - `npm run verify` — typecheck + lint + secret-scan + tests + build. **Enforced by a
   pre-commit hook** (`scripts/githooks/pre-commit`, wired via `npm install`), so a red
-  gate blocks the commit itself. Humans bypass with `git commit -n`; the loop never does.
-- `npm run typecheck` — `tsc --checkJs` only (fast; use while iterating).
+  gate blocks the commit itself. Humans bypass with `git commit -n`; the loop bypasses
+  it only for its own docs-only PROGRESS.md telemetry commit, never for a card fix.
+- `npm run typecheck` — `tsc -p tsconfig.json` (checkJs mode; fast, use while iterating).
 - `npm run lint` — `eslint .`.
 - `npm test` — `node --test` unit tests.
 - `npm run build` — `electron-vite build`.

@@ -47,6 +47,9 @@ esac
 # Timestamped log line, mirrored to console and .loop/loop.log (created below).
 log() { echo "[$(date -u +%FT%TZ)] $*" | tee -a .loop/loop.log; }
 
+# The one definition of "an actionable card": an unstarted ([ ]) v:auto card.
+count_todo() { grep -cE '^- \[ \].*v:auto' IMPLEMENTATION_PLAN.md || true; }
+
 # Portable timeout — macOS ships no coreutils `timeout`. Runs a command in the
 # background and TERMs it if it outlives $1 seconds. Returns 124 on timeout.
 run_with_timeout() {
@@ -128,7 +131,7 @@ for i in $(seq 1 "$MAX_ITERS"); do
   # Deterministic end: stop the moment no actionable cards remain. v:human cards stay
   # on the board forever, so "board clear" means no [ ] v:auto cards — not an empty
   # board. This guarantees the loop terminates.
-  todo=$(grep -cE '^- \[ \].*v:auto' IMPLEMENTATION_PLAN.md || true)
+  todo=$(count_todo)
   if [ "${todo:-0}" -eq 0 ]; then
     log "=== ralph: no [ ] v:auto cards left — board clear, stopping. ==="
     exit 0
@@ -210,7 +213,7 @@ done
 
 # Ran out of iterations. Whether that's success or a warning depends on the board:
 # work still queued means we stopped short, not that we finished.
-if [ "$(grep -cE '^- \[ \].*v:auto' IMPLEMENTATION_PLAN.md || true)" -gt 0 ]; then
+if [ "$(count_todo)" -gt 0 ]; then
   log "=== ralph: reached MAX_ITERS=$MAX_ITERS with v:auto work still queued. ==="
   exit "$EXIT_MAXITERS"
 fi
