@@ -69,7 +69,11 @@ Regenerate the GH block below: `bash loop.sh plan` (see PROMPT_plan.md).
 ## F — Persistent field-anchored icon (Phase 3) (#52)
 
 - [ ] #53  F1  AX probe CLI + per-app truth table (M0)  · sev:high · v:human
-- [ ] #54  F2  Helper lifecycle in Electron: spawn/respawn, heartbeat, NDJSON parser  · sev:high · v:auto
+- [x] #54  F2  Helper lifecycle in Electron: spawn/respawn, heartbeat, NDJSON parser  · sev:high · v:auto
+      (Split: shipped the two pure electron-free modules — src/main/ndjson.js and
+      src/main/helper-lifecycle.js — with full node --test coverage. Electron spawn
+      wiring + R12/R13 runtime behaviour tracked as #78, blocked on #53's binary.)
+- [ ] #78  F2b  Wire the F2 lifecycle/parser into Electron main (spawn, R12/R13)  · sev:high · v:human
 - [ ] #55  F3  Field qualification as a pure function + denylist storage  · sev:high · v:auto
 - [ ] #56  F4  Ghost icon: window follows the focused field  · sev:high · v:human
 - [ ] #57  F5  Icon unfolds the action panel (selection path)  · sev:high · v:human
