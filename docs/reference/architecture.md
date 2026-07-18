@@ -91,8 +91,8 @@ the dev binary. This is deliberate: a *regular* app forces macOS to switch
 Spaces when its window shows/focuses, which kicks the user out of a
 fullscreen Space. An accessory app owns no Space, so the hotkey overlay can
 appear over a fullscreen app without a Space-flip. See
-[`docs/phase2/menu-bar-app.md`](../phase2/menu-bar-app.md) for the full
-before/after reasoning (kept for context; not deleted by this restructure).
+[`decisions/0002-menu-bar-accessory-overlay.md`](../decisions/0002-menu-bar-accessory-overlay.md)
+for the full before/after reasoning.
 
 - **On launch:** no window shown, tray icon (`✎`) created. Exception: first
   run with no key stored for any provider opens the window so key entry

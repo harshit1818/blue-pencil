@@ -19,9 +19,12 @@ the in-app writing surface, or from any other app via the global hotkey.
 
 ## Current scope (reality, not the original plan)
 
-The original design doc (superseded; see `docs/phase2/` for the build specs
-that shipped it) scoped the system-wide overlay as an explicit **Phase 3
-stretch, out of v1**. That's stale: **the hotkey overlay shipped in Phase 2.**
+The original design doc (superseded; see
+[`decisions/0002-menu-bar-accessory-overlay.md`](../decisions/0002-menu-bar-accessory-overlay.md)
+and [`decisions/0003-global-hotkey-grab-osascript.md`](../decisions/0003-global-hotkey-grab-osascript.md)
+for the decisions that shipped it) scoped the system-wide overlay as an
+explicit **Phase 3 stretch, out of v1**. That's stale: **the hotkey overlay
+shipped in Phase 2.**
 Press `⌘⇧'` in any app — including a fullscreen one — to grab a selection (or
 whatever's on the clipboard), run an action, and get the result back without
 switching windows. See [`how-to/use-the-hotkey.md`](../how-to/use-the-hotkey.md)

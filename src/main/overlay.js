@@ -97,7 +97,7 @@ function flush() {
   // showInactive() shows without activating the app, so summoning the overlay
   // doesn't pull the active Space to another display (the "opens on the other
   // screen, no overlay over fullscreen" bug). focus() then gives it key focus so
-  // Escape/typing work. See docs/phase2/menu-bar-app.md.
+  // Escape/typing work. See docs/decisions/0002-menu-bar-accessory-overlay.md.
   win.showInactive()
   win.focus()
   const [x, y] = win.getPosition()

@@ -45,9 +45,11 @@ stale, fix the doc, not this row.
 | [`decisions/0006-provider-registry-openai-compatible.md`](./decisions/0006-provider-registry-openai-compatible.md) | Accepted | Provider registry: native Anthropic SDK + shared OpenAI-compatible client |
 | [`decisions/0007-dependency-free-secret-scan.md`](./decisions/0007-dependency-free-secret-scan.md) | Accepted | Dependency-free secret scan inside `npm run verify` |
 
-## Not migrated here
+## Retired
 
-`docs/phase2/*` (except `hotkey-interaction.md`, moved to
-`reference/hotkey-behavior.md`) were phase build specs, not user-facing docs —
-their still-relevant decisions are now the ADRs above; the rest is captured in
-`reference/` and `explanation/`. The specs themselves are retired (commit 3).
+The old `docs/phase2/*` build specs (phase build notes, not user-facing docs)
+are gone. Their locked decisions are now the ADRs above; their still-relevant
+mechanics live in `reference/` (architecture, providers, hotkey behavior) and
+`explanation/` (product scope). `hotkey-interaction.md` was moved to
+[`reference/hotkey-behavior.md`](./reference/hotkey-behavior.md) before the
+rest were retired.

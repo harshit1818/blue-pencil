@@ -20,5 +20,5 @@ action; Escape dismisses.
 
 See [`reference/hotkey-behavior.md`](../reference/hotkey-behavior.md) for the
 full locked interaction contract, and
-[`docs/phase2/menu-bar-app.md`](../phase2/menu-bar-app.md) for why the
-overlay can float over fullscreen Spaces at all.
+[`decisions/0002-menu-bar-accessory-overlay.md`](../decisions/0002-menu-bar-accessory-overlay.md)
+for why the overlay can float over fullscreen Spaces at all.
