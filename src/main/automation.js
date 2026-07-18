@@ -120,7 +120,7 @@ export async function grabSelection() {
 // default composer, Gmail, Notion, Mail, Notes, Word...) read the HTML and apply
 // the formatting on paste; plain-only targets (terminals) read the readable
 // Markdown. One write covers both, so there is no per-app registry. Plain results
-// keep today's text-only write. See docs/phase2/rich-text-format-action.md.
+// keep today's text-only write. See docs/decisions/0005-markdown-interchange-universal-dual-write.md.
 function writeResult(text, markdown) {
   const value = text ?? ''
   if (markdown) clipboard.write({ html: mdToClipboardHtml(value), text: value })

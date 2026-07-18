@@ -1,111 +1,52 @@
 # Blue Pencil
 
 A personal macOS writing assistant — a single writing surface with a floating
-assistant that opens on click, anchored to the text box. On-demand proofreading,
-rewriting, tone adjustment, and summarization, powered by an LLM you supply the
-key for. 
+assistant that opens on click, anchored to the text box. On-demand
+proofreading, rewriting, tone adjustment, and summarization, powered by an
+LLM you supply the key for. A global hotkey (`⌘⇧'`) brings the same assistant
+to any app, including fullscreen ones.
 
-This is the **Phase 1** scaffold per [`DESIGN.md`](./docs/DESIGN.md): an Electron shell
-wrapping the renderer prototype, with the API key held in the macOS Keychain and
-real model calls made in the main process over IPC.
+Electron (main + preload + React renderer), plain JavaScript with JSDoc-based
+typechecking. The API key lives in the macOS Keychain; model calls happen in
+the main process over IPC — the renderer never sees the key, the provider
+client, or the network.
 
-## Architecture
-
-```
-renderer (React)         surface + floating popover + provider picker
-   │  IPC: "transform"({ text, action, tone }) → result
-   ▼
-main process             resolves the active provider/model from settings,
-   │                     reads that provider's key from the macOS Keychain
-   ▼
-provider registry        ask({ provider, model, prompt }) → string
-                         Anthropic (native SDK) · OpenAI · Groq · Gemini
-                         (the last three via the OpenAI-compatible API)
-```
-
-- **`src/main/keychain.js`** — one Keychain account per provider, all under the `BluePencil` service.
-- **`src/main/providers.js`** — the provider registry + active-selection resolvers. Add a provider here; nothing else changes.
-- **`src/main/settings.js`** — non-secret selection store (active provider + per-provider model) under `userData`.
-- **`src/main/transform.js`** — prompt construction; resolves the active provider/model itself.
-- **`src/main/index.js`** — window + IPC handlers (`transform`, `providers:list`, `key:*`, `settings:*`).
-- **`src/preload/index.js`** — the only renderer↔main bridge (`window.api`).
-- **`src/shared/tokens.js`** — design tokens shared by main and renderer.
-- **`src/renderer/`** — React UI adapted from `prototypes/writing-desk-floating.jsx`.
-
-The renderer never sees the key, the provider client, or the network — it sends a
-semantic action over IPC and renders the result.
-
-## Layout
-
-```
-docs/            DESIGN.md, design-notes.md, phase2/ specs
-prototypes/      original web + floating UI prototypes (reference only)
-build/           macOS entitlements
-src/
-  shared/        tokens.js — design tokens (main + renderer)
-  main/          Electron main: window, IPC, providers, settings, keychain
-  preload/       contextBridge → window.api
-  renderer/      React UI (index.html + src/)
-```
-
-## Develop
+## Quickstart
 
 ```bash
-npm install        # native deps (keytar) are rebuilt for Electron via postinstall
-npm run dev        # launches the app with hot reload
+npm install        # native deps (keytar) rebuilt for Electron via postinstall
+npm run dev         # run it, with hot reload
+npm run dist        # build an unsigned Blue Pencil.dmg in dist/
 ```
 
-Blue Pencil is a **menu-bar app**: on launch it shows a **✎** in the menu bar and
-**no window** (except first run, when no key is stored yet — then it opens for key
-entry). Open the writing window from the tray menu or with the hotkey; closing the
-window hides it (Quit is in the tray).
+## Documentation
 
-Pick a provider from the dropdown in the top bar, then paste that provider's key
-into the panel (toggled by the key button). Keys go straight into the Keychain.
-You can also seed keys from the environment on first run —
-`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GROQ_API_KEY`, `GEMINI_API_KEY` (see
-`.env.example`); they're moved into the Keychain and never written to disk.
+Docs are grouped by type under [`docs/`](./docs/README.md) — the linked index
+is also the staleness dashboard.
 
-Default model ids per provider live in `src/main/providers.js` and are
-overridable from the picker — confirm the current ids for OpenAI/Groq/Gemini,
-since those move fast. To add a provider, add one entry to that file.
+- **How-to** — [develop](./docs/how-to/develop.md) ·
+  [build & install](./docs/how-to/build-and-install.md) ·
+  [use the hotkey](./docs/how-to/use-the-hotkey.md)
+- **Reference** — [architecture](./docs/reference/architecture.md) ·
+  [providers](./docs/reference/providers.md) ·
+  [hotkey behavior](./docs/reference/hotkey-behavior.md)
+- **Explanation** — [product](./docs/explanation/product.md) ·
+  [design language](./docs/explanation/design-language.md)
+- **Decisions** — [`docs/decisions/`](./docs/decisions/) (ADRs)
 
-A gitleaks pre-commit hook guards against committing secrets — enable it with
-`pip install pre-commit && pre-commit install`. Keys belong in the Keychain (via
-the picker) or a gitignored `.env`, never in tracked files.
+## Contributing
 
-## Global hotkey
+This is a personal, single-user tool, not open for outside contribution — but
+if you're the future maintainer (human or loop agent) picking this back up:
 
-Press **⌘⇧'** to use Blue Pencil in any app without switching windows.
+- Conventional commits (`feat:`, `fix:`, `docs:`, `chore:`, …); see
+  [`AGENTS.md`](./AGENTS.md) for the loop's operational rules.
+- `npm run verify` (typecheck → lint → secret scan → tests → build) **must
+  pass before every commit**. The secret scan covers tracked *and*
+  untracked-not-ignored files, not only tracked ones.
+- Semicolon-free style (ASI); match surrounding code. Comments only where
+  intent isn't obvious.
 
-- **With macOS Accessibility granted:** select text → ⌘⇧' → it copies the
-  selection for you → pick an action → the result is pasted back into the app.
-- **Without it (default):** copy text (⌘C) → ⌘⇧' → pick an action → the result is
-  copied to your clipboard → paste it back (⌘V). An **Enable** link in the popover
-  turns on the auto path (grant Accessibility in System Settings, then restart).
+## License
 
-Uses whatever provider/key you've set in the app. As a menu-bar (accessory) app it
-floats over other apps **including fullscreen** ones. See [`docs/phase2/`](./docs/phase2/)
-for the specs.
-
-## Build & install (local, unsigned)
-
-```bash
-npm run dist       # builds an unsigned Blue Pencil.dmg in dist/
-```
-
-Open the `.dmg`, drag **Blue Pencil** into Applications, and launch it. It's an
-unsigned build — fine for your own machine:
-
-- **First launch may be blocked.** Right-click the app → **Open** → **Open**
-  (once). If macOS calls it "damaged," clear the quarantine flag:
-  `xattr -dr com.apple.quarantine "/Applications/Blue Pencil.app"`.
-- **Permissions re-prompt.** The packaged app is a different binary than the dev
-  build, so macOS asks for **Accessibility** (and the **Automation** prompt on the
-  first auto-grab) again. Grant Accessibility in System Settings, then relaunch.
-- **Launch at login** is a checkbox in the menu-bar (✎) menu — tick it so the
-  hotkey is always available.
-
-Handing the app to *other* people additionally needs an Apple Developer ID
-(code-signing + notarization) and `hardenedRuntime` flipped back on in
-`package.json` → `build.mac`. For your own use the unsigned build above is enough.
+Private, all rights reserved — see [`LICENSE`](./LICENSE).

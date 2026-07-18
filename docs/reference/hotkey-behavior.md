@@ -1,4 +1,6 @@
-# Phase 2 — Hotkey Popover Interaction (locked)
+# Hotkey popover interaction (locked)
+
+> Status: current · Updated: 2026-07-18
 
 The hotkey popover reuses the in-app popover's *look* and the same `transform`
 pipeline, but its *behavior* is different because it floats over other apps with
@@ -38,7 +40,8 @@ inline-editable capture is a documented fast-follow, deferred to keep this from
 becoming a second editor.
 
 ### Actions & delivery
-Same action set as in-app (Proofread, Improve, Simplify, Summarize, Tone). The
+Same action set as in-app (Proofread, Improve, Simplify, Summarize, Paraphrase,
+Neutralize, Formalize, Coherence, Format), plus the Tone row. The
 result's primary button is **permission-dependent**, decided at runtime:
 - **No Accessibility (v0):** primary is **Copy**, with the hint "Copied — press ⌘V
   in your app." Popover stays open after Copy so another action can be tried.
@@ -69,8 +72,15 @@ paste-back**. On dismiss, focus returns to the prior app (v1 reactivates it expl
 It's a keyboard-summoned tool, so it's keyboard-operable end to end. On open, focus
 the primary action so **Enter runs it** (Proofread by default). Tab / arrows move
 between actions. Escape dismisses. **[locked, override-able]** Digit shortcuts
-(1 Proofread, 2 Improve, 3 Simplify, 4 Summarize) included — cheap and high-value
-for a power tool.
+included — cheap and high-value for a power tool.
+
+**What the code actually does** (`src/renderer/src/HotkeyPopover.jsx`,
+verified against issue #19): digits **1–9** run the full action list in
+display order — 1 Proofread, 2 Improve, 3 Simplify, 4 Summarize, 5 Paraphrase,
+6 Neutralize, 7 Formalize, 8 Coherence, 9 Format. This doc previously said
+"digits 1–4"; that predates Paraphrase/Neutralize/Formalize/Coherence/Format
+being added to the action set. The shortcuts aren't surfaced in the UI
+(#19, open) — no visible hint that they exist beyond this doc.
 
 ### Look
 The same popover component and tokens — frameless, transparent window hosting a

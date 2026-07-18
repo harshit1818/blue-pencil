@@ -99,7 +99,7 @@ export default function HotkeyPopover() {
     clearPanel({ result: setResult, marks: setMarks, error: setError, copied: setCopied, hint: setHint, gen: runGen })
   }, [provider])
 
-  // Keyboard-first: Escape dismisses; Enter runs the primary; 1-4 run the four
+  // Keyboard-first: Escape dismisses; Enter runs the primary; 1-9 run the nine
   // actions. A stable wrapper calls the latest handler (held in a ref) so it
   // always sees current state without re-subscribing each render.
   useEffect(() => {
