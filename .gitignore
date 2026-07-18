@@ -32,6 +32,9 @@ yarn-error.log*
 # --- Ralph loop transient state ---
 .loop/
 
+# --- Claude Code session artifacts (scratch worktrees, local settings) ---
+.claude/
+
 # --- OS / editor cruft ---
 .DS_Store
 .idea/

@@ -28,6 +28,7 @@ EXIT_INPROGRESS=5    # a [~] v:auto card is on the board — half-done work
 EXIT_MAXITERS=6      # ran out of iterations with v:auto work still on the board
 EXIT_PUSH=7          # too many consecutive push failures
 EXIT_ITER_FAILED=8   # the claude invocation failed past its retries
+EXIT_LOCKED=9        # another loop is already running against this checkout
 
 MAX_ITERS="${1:-10}"
 STALL_LIMIT="${STALL_LIMIT:-2}"
@@ -82,6 +83,16 @@ fi
 export CLAUDE_PLUGIN_OPTION_SKIP_DIRECTORIES="$(pwd)${CLAUDE_PLUGIN_OPTION_SKIP_DIRECTORIES:+,$CLAUDE_PLUGIN_OPTION_SKIP_DIRECTORIES}"
 
 mkdir -p .loop
+
+# Single-writer lock: two loops against one checkout would race on HEAD and the
+# board. mkdir is atomic, so it doubles as a lock; the EXIT trap releases it on
+# every path (clean end or any exit code above).
+if ! mkdir .loop/lock 2>/dev/null; then
+  echo "ralph: another loop holds .loop/lock — refusing to run concurrently (remove it if stale)." >&2
+  exit "$EXIT_LOCKED"
+fi
+trap 'rmdir .loop/lock 2>/dev/null || true' EXIT
+
 rm -f .loop/DONE
 stall=0
 pushfail=0

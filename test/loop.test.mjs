@@ -1,9 +1,11 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { mkdirSync, rmdirSync } from 'node:fs'
+import { join } from 'node:path'
 import { setupSandbox, DEFAULT_ISSUES } from './helpers/loop-sandbox.mjs'
 
 // Exit codes mirror the table documented at the top of loop.sh.
-const EXIT = { OK: 0, STALL: 1, BRANCH_MOVED: 3, DIRTY: 4, INPROGRESS: 5, MAXITERS: 6, PUSH: 7, ITER_FAILED: 8 }
+const EXIT = { OK: 0, STALL: 1, BRANCH_MOVED: 3, DIRTY: 4, INPROGRESS: 5, MAXITERS: 6, PUSH: 7, ITER_FAILED: 8, LOCKED: 9 }
 
 test('board clear (no [ ] v:auto cards) exits OK without calling the agent', () => {
   // Only a v:human card open -> the projected board has no [ ] v:auto card.
@@ -15,6 +17,19 @@ test('board clear (no [ ] v:auto cards) exits OK without calling the agent', () 
   const r = sb.run(3)
   assert.equal(r.status, EXIT.OK)
   assert.match(r.log, /board clear/)
+})
+
+test('a second loop refuses to run while the lock is held, and a run releases it', () => {
+  const sb = setupSandbox()
+  mkdirSync(join(sb.dir, '.loop', 'lock'), { recursive: true }) // simulate a loop already holding it
+  const held = sb.run(2, { CLAUDE_ACTION: 'noop' })
+  assert.equal(held.status, EXIT.LOCKED)
+
+  // Release it, then a normal run must acquire and free the lock on exit.
+  rmdirSync(join(sb.dir, '.loop', 'lock'))
+  const clean = sb.run(2, { CLAUDE_ACTION: 'done' })
+  assert.equal(clean.status, EXIT.OK)
+  assert.ok(!sb.exists('.loop/lock'), 'lock must be released on exit')
 })
 
 test('a dirty working tree stops before the agent runs', () => {
