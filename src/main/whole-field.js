@@ -27,13 +27,15 @@ export function createRequestChannel({ send, timeoutMs = 3000 }) {
       if (!Number.isFinite(now)) throw new TypeError('request() needs a finite `now` (ms)')
       return new Promise((resolve, reject) => {
         const id = nextId++
+        // Register before send so a transport that answers synchronously
+        // from within send() still finds the pending entry.
+        pending.set(id, { resolve, reject, deadline: now + timeoutMs })
         try {
           send(JSON.stringify({ id, type, elementId }) + '\n')
         } catch (err) {
+          pending.delete(id)
           reject(err)
-          return
         }
-        pending.set(id, { resolve, reject, deadline: now + timeoutMs })
       })
     },
     // Feed events from the NDJSON stream; returns true when the event settled
@@ -42,8 +44,8 @@ export function createRequestChannel({ send, timeoutMs = 3000 }) {
       if (evt?.type !== 'response' || !pending.has(evt.id)) return false
       const p = pending.get(evt.id)
       pending.delete(evt.id)
-      if (evt.ok === false) p.reject(new Error(evt.error || 'helper error'))
-      else p.resolve(evt.value)
+      if (evt.ok === true) p.resolve(evt.value)
+      else p.reject(new Error(evt.error || 'helper error'))
       return true
     },
     // Periodic clock check — expire requests past their deadline.
@@ -73,10 +75,12 @@ export function createWholeFieldFlow({ readValue, verifyFocus, applyReplace }) {
   return {
     async read(focus) {
       session = null
+      // Bump on every entry (refusals included) so an older in-flight read
+      // can't resurrect a session a refusing read just cleared.
+      const gen = ++readGen
       if (!focus?.elementId) return { ok: false, reason: 'no-field' }
       if (focus.secure) return { ok: false, reason: 'secure' }
       if (focus.hasSelection) return { ok: false, reason: 'selection' }
-      const gen = ++readGen
       let text
       try {
         text = await readValue(focus.elementId)
