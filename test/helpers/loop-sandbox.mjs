@@ -43,6 +43,16 @@ case "$action" in
   branch) git checkout -q -b hijacked; exit 0 ;;
   sleep)  sleep "\${CLAUDE_SLEEP:-5}"; exit 0 ;;
   commit) git commit --allow-empty -q -m "stub work"; echo '{"total_cost_usd":0.0123,"duration_ms":42}'; exit 0 ;;
+  flip)   # deliver the targeted card: flip [ ] -> [x] on the board and commit
+          n="$(printf '%s' "$input" | sed -n 's/.*Work ONLY on GitHub issue #\\([0-9]*\\).*/\\1/p' | head -1)"
+          node -e '
+            const fs = require("fs")
+            const n = process.argv[1], p = "IMPLEMENTATION_PLAN.md"
+            const s = fs.readFileSync(p, "utf8")
+            fs.writeFileSync(p, s.replace("- [ ] #" + n + " ", "- [x] #" + n + " "))
+          ' "$n"
+          git commit -aq -m "feat: card #$n (Closes #$n)"
+          exit 0 ;;
   cost)   git commit --allow-empty -q -m "stub work"; echo '{"total_cost_usd":0.5,"duration_ms":99}'; exit 0 ;;
   fail*)  n="\${action#fail}"; c=.loop/stub-fails
           seen=$(cat "$c" 2>/dev/null || echo 0)
@@ -68,6 +78,8 @@ case "$1" in
       view)    [ -f .loop/pr-exists ] && exit 0 || exit 1 ;;
       create)  : > .loop/pr-exists; echo "https://example.test/pr/1" ;;
       comment) : ;;
+      ready)   : ;;
+      merge)   git push -q origin "HEAD:\${BASE:-main}" ;;
       *) : ;;
     esac ;;
   *) : ;;
@@ -88,11 +100,16 @@ export function setupSandbox({ issues = DEFAULT_ISSUES, withOrigin = true } = {}
 
   mkdirSync(join(dir, 'scripts'))
   cpSync(join(ROOT, 'loop.sh'), join(dir, 'loop.sh'))
+  cpSync(join(ROOT, 'loop-issues.sh'), join(dir, 'loop-issues.sh'))
   cpSync(join(ROOT, 'PROMPT_build.md'), join(dir, 'PROMPT_build.md'))
   cpSync(join(ROOT, 'PROMPT_review.md'), join(dir, 'PROMPT_review.md'))
   cpSync(join(ROOT, 'scripts', 'regen-board.mjs'), join(dir, 'scripts', 'regen-board.mjs'))
   cpSync(join(ROOT, 'scripts', 'review-triage.mjs'), join(dir, 'scripts', 'review-triage.mjs'))
   writeFileSync(join(dir, 'IMPLEMENTATION_PLAN.md'), '# board\n<!-- GH:BEGIN -->\n<!-- GH:END -->\n')
+  // Mirror the real repo: .loop/ is gitignored, so the harness's own transient
+  // writes never trip the dirty-tree guards (loop.sh checks after mkdir .loop;
+  // loop-issues.sh logs before the inner run even starts).
+  writeFileSync(join(dir, '.gitignore'), '.loop/\n')
 
   const env = { ...process.env, PATH: `${bin}:${process.env.PATH}` }
   // Pre-populate the board so loop.sh's own regen is an idempotent no-op (clean tree).

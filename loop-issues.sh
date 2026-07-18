@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+# Per-issue driver on top of loop.sh: one issue = one branch = one PR = one merge.
+# Picks the top v:auto card, cuts loop/issue-N from origin/$BASE, runs a targeted
+# ONLY=N loop.sh (draft PR + independent review + remediation happen in there), and
+# merges ONLY when the final review gate passes: verdict LGTM and zero objective
+# findings (scripts/review-triage.mjs mergeable). Product findings never block — they
+# ride the PR as the human checklist. Attempted issues are skipped, merged or not, so
+# one stuck card can't wedge the queue; a fresh driver run retries what's still open.
+# Invariants: never commits to $BASE (it moves only by --ff-only pull); merges are
+# server-side via gh, so branch protection stays a second gate. See
+# docs/decisions/0008-per-issue-merge-loop.md.
+#
+# Usage:
+#   ./loop-issues.sh [MAX_ISSUES]   # default 5 issues this run
+#   AUTO_MERGE=0 ./loop-issues.sh   # deliver + review but never merge
+set -euo pipefail
+cd "$(dirname "$0")"
+
+# NOTE: test/loop-issues.test.mjs mirrors this table — change both together.
+EXIT_OK=0
+EXIT_BADARGS=2
+EXIT_DIRTY=4
+EXIT_LOCKED=9
+EXIT_INNER=10   # loop.sh failed — its exit code is in the log
+EXIT_MERGE=11   # gh pr merge failed — merge state needs a human
+
+MAX_ISSUES="${1:-5}"
+ITERS_PER_ISSUE="${ITERS_PER_ISSUE:-10}"
+BASE="${BASE:-main}"
+AUTO_MERGE="${AUTO_MERGE:-1}"
+
+case "$MAX_ISSUES" in
+  *[!0-9]*|'') echo "issues: MAX_ISSUES must be a number, got '$MAX_ISSUES'" >&2; exit "$EXIT_BADARGS" ;;
+esac
+
+mkdir -p .loop
+log() { echo "[$(date -u +%FT%TZ)] $*" | tee -a .loop/issues.log; }
+
+# Same single-writer mkdir pattern as loop.sh, separate lock: the driver owns the
+# checkout BETWEEN inner runs too (branch switches, pulls).
+if ! mkdir .loop/issues-lock 2>/dev/null; then
+  echo "issues: another driver holds .loop/issues-lock — remove it if stale." >&2
+  exit "$EXIT_LOCKED"
+fi
+trap 'rmdir .loop/issues-lock 2>/dev/null || true' EXIT
+
+if [ -n "$(git status --porcelain)" ]; then
+  log "=== issues: working tree dirty — inspect before driving. ==="
+  exit "$EXIT_DIRTY"
+fi
+
+git checkout -q "$BASE"
+git pull -q --ff-only origin "$BASE"
+
+skip=""
+merged=0
+for n in $(seq 1 "$MAX_ISSUES"); do
+  issue="$(node scripts/regen-board.mjs next ${skip:+--skip "$skip"})"
+  if [ -z "$issue" ]; then
+    log "=== issues: queue clear after $((n - 1)) issue(s) — stopping. ==="
+    break
+  fi
+  branch="loop/issue-$issue"
+  log "=== issues: #$issue ($n/$MAX_ISSUES) on $branch ==="
+
+  git fetch -q origin "$BASE"
+  git checkout -q -B "$branch" "origin/$BASE"
+
+  rm -f .loop/review.json   # a stale verdict must never gate this issue
+  rc=0
+  ONLY="$issue" BASE="$BASE" bash loop.sh "$ITERS_PER_ISSUE" || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    log "=== issues: loop.sh exited rc=$rc on #$issue — stopping for a human. ==="
+    exit "$EXIT_INNER"
+  fi
+  skip="${skip:+$skip,}$issue"
+
+  if [ "$AUTO_MERGE" = 1 ] && gh pr view "$branch" >/dev/null 2>&1 \
+     && node scripts/review-triage.mjs mergeable .loop/review.json >>.loop/issues.log 2>&1; then
+    log "=== issues: gate passed — merging #$issue ==="
+    if ! { gh pr ready "$branch" \
+           && gh pr merge "$branch" --merge --delete-branch --subject "merge: $branch (Closes #$issue)"; } \
+         2>&1 | tee -a .loop/issues.log; then
+      log "=== issues: merge failed for #$issue — stopping for a human. ==="
+      exit "$EXIT_MERGE"
+    fi
+    merged=$((merged + 1))
+  else
+    log "=== issues: not merging #$issue (gate failed, no PR, or AUTO_MERGE=0) — PR left for a human. ==="
+  fi
+
+  # gh --delete-branch may or may not have moved the checkout; make the end state
+  # unconditional: on $BASE, fast-forwarded, issue branch gone.
+  git checkout -q "$BASE"
+  git pull -q --ff-only origin "$BASE"
+  git branch -q -D "$branch" 2>/dev/null || true
+done
+
+log "=== issues: done — $merged merged. ==="
+exit "$EXIT_OK"
