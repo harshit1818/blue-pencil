@@ -60,8 +60,15 @@ export function renderComment(review) {
       : '**Needs your decision:** none.',
   )
   product.forEach((f) => out.push(fmt(f)))
-  out.push('', '_The loop never merges. Review and merge stay with you._')
+  out.push('', '_Product decisions stay with a human; loop-issues.sh merges only when the review gate passes._')
   return out.join('\n')
+}
+
+// The driver's merge gate: overall LGTM and nothing objective survived remediation.
+// Product findings never block — they are the PR's human checklist, and the LGTM
+// verdict is the reviewer's lever to block on a product problem that matters.
+export function mergeable(review) {
+  return review.verdict === 'LGTM' && triage(review).objective.length === 0
 }
 
 export function renderProductChecklist(product) {
@@ -84,8 +91,12 @@ function main() {
   else if (cmd === 'count') process.stdout.write(String(objective.length))
   else if (cmd === 'fixprompt') process.stdout.write(fixPrompt(objective))
   else if (cmd === 'product') process.stdout.write(renderProductChecklist(product))
-  else {
-    process.stderr.write(`usage: review-triage.mjs comment|count|fixprompt|product <review.json>\n`)
+  else if (cmd === 'mergeable') {
+    const ok = mergeable(review)
+    process.stdout.write(ok ? 'mergeable\n' : `not mergeable: verdict=${review.verdict}, objective=${objective.length}\n`)
+    process.exit(ok ? 0 : 1)
+  } else {
+    process.stderr.write(`usage: review-triage.mjs comment|count|fixprompt|product|mergeable <review.json>\n`)
     process.exit(2)
   }
 }

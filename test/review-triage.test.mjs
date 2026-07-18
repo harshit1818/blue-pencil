@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { parseReview, triage, renderComment, renderProductChecklist, fixPrompt } from '../scripts/review-triage.mjs'
+import { parseReview, triage, renderComment, renderProductChecklist, fixPrompt, mergeable } from '../scripts/review-triage.mjs'
 
 const REVIEW = {
   verdict: 'NEEDS-WORK',
@@ -41,7 +41,7 @@ test('renderComment separates auto-fix from human-decision sections', () => {
   const c = renderComment(REVIEW)
   assert.match(c, /Standards \/ correctness \(2\)/)
   assert.match(c, /Needs your decision \(2\)/)
-  assert.match(c, /never merges/)
+  assert.match(c, /merges only when the review gate passes/)
 })
 
 test('the fix prompt carries the RALPH-FIX marker and only objective findings', () => {
@@ -57,4 +57,17 @@ test('the fix prompt carries the RALPH-FIX marker and only objective findings', 
 test('product checklist is empty when there are no product findings', () => {
   assert.equal(renderProductChecklist([]), '')
   assert.match(renderProductChecklist([{ location: 'c.js:3', issue: 'ux?' }]), /- \[ \] `c\.js:3`/)
+})
+
+const F = (category) => ({ category, severity: 'minor', location: 'x.js:1', issue: 'i' })
+
+test('mergeable: LGTM with no objective findings', () => {
+  assert.equal(mergeable({ verdict: 'LGTM', findings: [] }), true)
+  assert.equal(mergeable({ verdict: 'LGTM', findings: [F('product')] }), true) // product never blocks
+})
+
+test('not mergeable: objective findings or non-LGTM verdict', () => {
+  assert.equal(mergeable({ verdict: 'LGTM', findings: [F('correctness')] }), false)
+  assert.equal(mergeable({ verdict: 'NEEDS-WORK', findings: [] }), false)
+  assert.equal(mergeable({ verdict: 'PARSE-ERROR', findings: [] }), false)
 })

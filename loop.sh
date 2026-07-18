@@ -16,8 +16,8 @@
 #
 # When a run produces pushed commits it opens a DRAFT PR (AUTO_PR=0 to disable) and a
 # separate, fresh agent posts an independent review comment (AUTO_REVIEW=0 to disable).
-# The loop NEVER merges — reviewing and merging stay human. This is the review-before-
-# merge gate; automating it away would defeat the whole v:auto/v:human split.
+# loop.sh itself NEVER merges. Per-issue merging lives in loop-issues.sh, gated on
+# the final independent review (ADR 0008); v:human work stays human either way.
 #
 # Three independent stops guard against circles and token waste:
 #   1. MAX_ITERS      - hard cap, always terminates.
@@ -91,7 +91,7 @@ ensure_pr() {
   log "=== ralph: opening draft PR for $BRANCH ==="
   gh pr create --draft --base "$BASE" --head "$BRANCH" \
     --title "loop: $BRANCH" \
-    --body "Automated **draft** from loop.sh — review before marking ready; loop.sh never merges.
+    --body "Automated **draft** from loop.sh — loop.sh never merges; loop-issues.sh merges only on a clean review gate (ADR 0008).
 
 Cards this run:
 ${cards:-（none detected）}
