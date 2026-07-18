@@ -1,6 +1,6 @@
-> Status: Accepted · Updated: 2026-07-19
-
 # 0005 — Markdown as interchange format; universal dual-write on delivery
+
+> Status: Accepted · Updated: 2026-07-19
 
 ## Context
 

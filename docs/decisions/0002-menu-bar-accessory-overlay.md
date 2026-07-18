@@ -1,6 +1,6 @@
-> Status: Accepted · Updated: 2026-07-19
-
 # 0002 — Menu-bar accessory app so the overlay works over fullscreen
+
+> Status: Accepted · Updated: 2026-07-19
 
 ## Context
 

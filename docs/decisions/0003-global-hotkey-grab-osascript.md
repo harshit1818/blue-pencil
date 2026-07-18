@@ -1,6 +1,6 @@
-> Status: Accepted · Updated: 2026-07-19
-
 # 0003 — Staged global-hotkey grab; keystroke synthesis via osascript
+
+> Status: Accepted · Updated: 2026-07-19
 
 ## Context
 

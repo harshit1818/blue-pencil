@@ -1,6 +1,6 @@
-> Status: Accepted · Updated: 2026-07-19
-
 # 0004 — Provider/model selection lives in a main-process settings store
+
+> Status: Accepted · Updated: 2026-07-19
 
 ## Context
 

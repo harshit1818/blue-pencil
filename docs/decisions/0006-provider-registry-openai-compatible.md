@@ -1,6 +1,6 @@
-> Status: Accepted · Updated: 2026-07-19
-
 # 0006 — Provider registry: native Anthropic SDK + shared OpenAI-compatible client
+
+> Status: Accepted · Updated: 2026-07-19
 
 ## Context
 

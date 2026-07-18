@@ -1,6 +1,6 @@
-> Status: Accepted · Updated: 2026-07-19
-
 # 0007 — Dependency-free secret scan inside `npm run verify`
+
+> Status: Accepted · Updated: 2026-07-19
 
 ## Context
 

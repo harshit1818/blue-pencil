@@ -1,6 +1,6 @@
 # Blue Pencil — docs
 
-> Status: current · Updated: 2026-07-18
+> Status: current · Updated: 2026-07-19
 
 Docs are grouped by type ([Diátaxis](https://diataxis.fr)): how-to guides for
 doing a task, reference for looking something up, explanation for the why,

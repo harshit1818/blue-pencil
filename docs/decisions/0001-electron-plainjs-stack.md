@@ -1,6 +1,6 @@
-> Status: Accepted · Updated: 2026-07-19
-
 # 0001 — Electron + plain JavaScript with JSDoc typechecking
+
+> Status: Accepted · Updated: 2026-07-19
 
 ## Context
 

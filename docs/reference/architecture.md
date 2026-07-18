@@ -7,8 +7,8 @@
 Electron (main + preload + React renderer), plain JavaScript with JSDoc-based
 typechecking (`tsc -p tsconfig.json`, no `.ts` files) — chosen for fastest path
 given existing Electron experience over introducing a TypeScript build step
-for a single-developer tool. See `docs/decisions/` for the ADR once commit 3
-lands it.
+for a single-developer tool. The stack decision is recorded in
+[`../decisions/0001-electron-plainjs-stack.md`](../decisions/0001-electron-plainjs-stack.md).
 
 ## Process & data flow
 
