@@ -111,7 +111,13 @@ export function setupSandbox({ issues = DEFAULT_ISSUES, withOrigin = true } = {}
   // loop-issues.sh logs before the inner run even starts).
   writeFileSync(join(dir, '.gitignore'), '.loop/\n')
 
+  // Hermetic against the invoking environment: when these tests run INSIDE a
+  // targeted loop iteration (ONLY=N loop.sh → claude → npm test), the outer
+  // run's control vars would leak in and steer the sandboxed loop.sh.
   const env = { ...process.env, PATH: `${bin}:${process.env.PATH}` }
+  for (const k of Object.keys(env)) {
+    if (/^(ONLY|BASE|BRANCH|MODEL|MAX_TURNS|ITER_TIMEOUT|RETRIES|BACKOFF|STALL_LIMIT|PUSH_FAIL_LIMIT|VERIFY_CMD|AUTO_PR|AUTO_REVIEW|AUTO_MERGE|REMEDIATION_ROUNDS|ITERS_PER_ISSUE|CLAUDE_ACTION|CLAUDE_SLEEP|STUB_OBJECTIVE)$/.test(k)) delete env[k]
+  }
   // Pre-populate the board so loop.sh's own regen is an idempotent no-op (clean tree).
   execFileSync('node', ['scripts/regen-board.mjs'], { cwd: dir, env, stdio: 'ignore' })
   git(dir, 'add', '-A')

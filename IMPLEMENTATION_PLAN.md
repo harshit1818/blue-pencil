@@ -66,7 +66,8 @@ Regenerate the GH block below: `bash loop.sh plan` (see PROMPT_plan.md).
 
 ## F — Persistent field-anchored icon (Phase 3) (#52)
 
-- [ ] #53  F1  AX probe CLI + per-app truth table (M0)  · sev:high · v:auto
+- [x] #53  F1  AX probe CLI + per-app truth table (M0)  · sev:high · v:auto
+- [ ] #83  F1b  Run ax-probe against the five target apps — record truth-table go/no-go  · sev:high · v:human
 - [ ] #56  F4  Ghost icon: window follows the focused field  · sev:high · v:auto
 - [ ] #57  F5  Icon unfolds the action panel (selection path)  · sev:high · v:auto
 - [ ] #59  F7  Whole-field read + verified apply (the core dream)  · sev:high · v:auto
