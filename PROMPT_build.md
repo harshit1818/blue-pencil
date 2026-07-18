@@ -29,6 +29,11 @@ on disk: read it, don't assume it.
    as new cards with the right `v:auto`/`v:human` tag.
 8. Commit. One card = one commit. Conventional Commits style. Put `Closes #N` in
    the body so merging the branch auto-closes the GitHub issue. No `Co-Authored-By`.
+9. If you learned something durable this iteration (a wrong assumption you had to
+   correct, a command that needed fixing, a non-obvious gotcha), append ONE line to
+   `PROGRESS.md` so the next fresh context inherits it. `loop.sh` records the
+   telemetry line itself — you add only the learning. Durable *operational* rules
+   (build/test commands) still go in `AGENTS.md`, not here.
 
 ## When the board is clear
 

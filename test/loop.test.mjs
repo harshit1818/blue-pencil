@@ -107,6 +107,16 @@ test('per-iteration telemetry is captured to .loop/iter-N.json and logged', () =
   assert.match(sb.read('.loop/loop.log'), /^\[\d{4}-\d{2}-\d{2}T/m) // timestamped lines
 })
 
+test('each committing iteration appends a telemetry line to PROGRESS.md', () => {
+  const sb = setupSandbox()
+  sb.run(2, { CLAUDE_ACTION: 'commit' }) // commits each iter but never flips the card
+  const progress = sb.read('PROGRESS.md')
+  const entries = progress.split('\n').filter((l) => /^- \[.*\] iter \d+\/\d+/.test(l))
+  assert.equal(entries.length, 2, 'one committed line per iteration')
+  // and it is tracked, not a dirty leftover
+  assert.match(sb.read('.loop/loop.log'), /iteration 2\/2/)
+})
+
 test('consecutive push failures abort with the push code', () => {
   // No origin -> every push fails; agent commits so a push is attempted each iter.
   const sb = setupSandbox({ withOrigin: false })

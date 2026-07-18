@@ -187,6 +187,14 @@ for i in $(seq 1 "$MAX_ITERS"); do
     fi
   else
     stall=0
+    # Durable per-iteration record that survives fresh contexts — committed, not just
+    # logged (loop.log/.loop are transient). Learnings the agent adds ride in its card
+    # commit; this line is the machine telemetry. Committed with -n: it is loop
+    # bookkeeping (docs-only), not agent work, so it skips the verify gate.
+    printf -- '- [%s] iter %s/%s → %s  cost=$%s duration=%sms\n' \
+      "$(date -u +%FT%TZ)" "$i" "$MAX_ITERS" "$(git rev-parse --short HEAD)" "$cost" "$dur" >> PROGRESS.md
+    git add PROGRESS.md
+    git commit -n -q -m "chore(progress): iteration $i telemetry" || true
     if git push origin "$BRANCH" 2>&1 | tee -a .loop/loop.log; then
       pushfail=0
     else
