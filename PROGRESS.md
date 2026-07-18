@@ -12,3 +12,4 @@ Format: `- [UTC] iter N/M → <short-sha>  cost=$X duration=Yms`
 - [2026-07-18T19:17:03Z] iter 2/10 → 7aba921  cost=$0.8717845000000001 duration=116040ms
 - learning: #54 was "blocked by #53" but its v:auto essence (NDJSON parser + lifecycle state machine) is protocol-agnostic and buildable now — split the electron spawn wiring (R12/R13, needs the real binary) into v:human #78 rather than stubbing a spawn against a nonexistent helper.
 - [2026-07-18T19:22:59Z] iter 3/10 → 7d4c539  cost=$1.6366494999999996 duration=350934ms
+- learning: bare `node --test` globs recursively into gitignored `.claude/worktrees/`, running a sibling branch's stale tests and reddening verify for reasons unrelated to your card. Scoped the test script to `test/` (fixed in package.json). If verify fails on tests you never touched, check for a polluting worktree first.
