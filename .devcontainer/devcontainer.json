@@ -1,0 +1,9 @@
+{
+  "name": "blue-pencil-loop",
+  "build": { "dockerfile": "Dockerfile" },
+  "runArgs": ["--cap-add=NET_ADMIN", "--cap-add=NET_RAW"],
+  "workspaceFolder": "/workspace",
+  "remoteUser": "node",
+  "overrideCommand": false,
+  "postCreateCommand": "sudo /usr/local/bin/init-firewall.sh && npm install"
+}
