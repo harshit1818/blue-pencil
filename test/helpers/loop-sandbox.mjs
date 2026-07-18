@@ -111,7 +111,17 @@ export function setupSandbox({ issues = DEFAULT_ISSUES, withOrigin = true } = {}
   // loop-issues.sh logs before the inner run even starts).
   writeFileSync(join(dir, '.gitignore'), '.loop/\n')
 
+  // Hermetic env: strip every loop.sh/stub knob inherited from the caller — an
+  // agent iteration spawned by `ONLY=56 bash loop.sh` runs these tests with that
+  // ONLY in its environment, which would steer the loop under test off the
+  // sandbox board and fail 17 tests. Tests pass knobs explicitly via run().
+  const KNOBS = [
+    'ONLY', 'MODEL', 'BASE', 'AUTO_PR', 'AUTO_REVIEW', 'AUTO_MERGE', 'VERIFY_CMD',
+    'REMEDIATION_ROUNDS', 'STALL_LIMIT', 'PUSH_FAIL_LIMIT', 'ITER_TIMEOUT', 'RETRIES',
+    'BACKOFF', 'MAX_TURNS', 'ITERS_PER_ISSUE', 'CLAUDE_ACTION', 'CLAUDE_SLEEP', 'STUB_OBJECTIVE'
+  ]
   const env = { ...process.env, PATH: `${bin}:${process.env.PATH}` }
+  for (const k of KNOBS) delete env[k]
   // Pre-populate the board so loop.sh's own regen is an idempotent no-op (clean tree).
   execFileSync('node', ['scripts/regen-board.mjs'], { cwd: dir, env, stdio: 'ignore' })
   git(dir, 'add', '-A')
