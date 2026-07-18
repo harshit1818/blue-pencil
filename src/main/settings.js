@@ -1,13 +1,16 @@
 import { app } from 'electron'
 import { join } from 'path'
 import { readFileSync, writeFileSync, renameSync } from 'fs'
+import { normalizeDenylist } from './field-qualify.js'
 
 // Persistence only — NO defaults, NO validation (providers.js owns the registry
 // and therefore owns "what's valid / what's the default"). This file is dumb
 // storage and holds NO SECRETS: API keys live in the macOS Keychain. settings.json
 // carries only the active provider id and per-provider model strings.
 //
-// shape: { provider: string | null, models: { [providerId]: string } }
+// shape: { provider: string | null, models: { [providerId]: string }, denylist: string[] }
+// denylist holds only the USER's extra bundle ids; the built-in defaults live in
+// field-qualify.js and are merged at qualify time, never persisted here.
 
 function file() {
   return join(app.getPath('userData'), 'settings.json')
@@ -21,10 +24,11 @@ function load() {
     const raw = JSON.parse(readFileSync(file(), 'utf8'))
     cache = {
       provider: typeof raw.provider === 'string' ? raw.provider : null,
-      models: raw.models && typeof raw.models === 'object' ? raw.models : {}
+      models: raw.models && typeof raw.models === 'object' ? raw.models : {},
+      denylist: normalizeDenylist(raw.denylist)
     }
   } catch {
-    cache = { provider: null, models: {} }
+    cache = { provider: null, models: {}, denylist: [] }
   }
   return cache
 }
@@ -52,5 +56,14 @@ export function setProviderId(id) {
 export function setModelId(providerId, model) {
   const cur = load()
   persist({ ...cur, models: { ...cur.models, [providerId]: (model || '').trim() } })
+  return cache
+}
+
+export function getDenylist() {
+  return load().denylist
+}
+
+export function setDenylist(list) {
+  persist({ ...load(), denylist: normalizeDenylist(list) })
   return cache
 }
