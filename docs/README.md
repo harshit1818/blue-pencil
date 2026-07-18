@@ -35,12 +35,19 @@ stale, fix the doc, not this row.
 
 ## Decisions
 
-Populated in the ADR pass (commit 3 of this restructure). Will index locked
-architectural decisions (e.g. Electron + plain JS/JSDoc, menu-bar/accessory
-app, provider abstraction) as one ADR per decision under `decisions/`.
+| ADR | Status | Title |
+|---|---|---|
+| [`decisions/0001-electron-plainjs-stack.md`](./decisions/0001-electron-plainjs-stack.md) | Accepted | Electron + plain JavaScript with JSDoc typechecking |
+| [`decisions/0002-menu-bar-accessory-overlay.md`](./decisions/0002-menu-bar-accessory-overlay.md) | Accepted | Menu-bar accessory app so the overlay works over fullscreen |
+| [`decisions/0003-global-hotkey-grab-osascript.md`](./decisions/0003-global-hotkey-grab-osascript.md) | Accepted | Staged global-hotkey grab; keystroke synthesis via osascript |
+| [`decisions/0004-settings-in-main-process-store.md`](./decisions/0004-settings-in-main-process-store.md) | Accepted | Provider/model selection lives in a main-process settings store |
+| [`decisions/0005-markdown-interchange-universal-dual-write.md`](./decisions/0005-markdown-interchange-universal-dual-write.md) | Accepted | Markdown as interchange format; universal dual-write on delivery |
+| [`decisions/0006-provider-registry-openai-compatible.md`](./decisions/0006-provider-registry-openai-compatible.md) | Accepted | Provider registry: native Anthropic SDK + shared OpenAI-compatible client |
+| [`decisions/0007-dependency-free-secret-scan.md`](./decisions/0007-dependency-free-secret-scan.md) | Accepted | Dependency-free secret scan inside `npm run verify` |
 
 ## Not migrated here
 
 `docs/phase2/*` (except `hotkey-interaction.md`, moved to
-`reference/hotkey-behavior.md`) are phase build specs, not user-facing docs —
-commit 3 converts the still-relevant ones to ADRs and retires the rest.
+`reference/hotkey-behavior.md`) were phase build specs, not user-facing docs —
+their still-relevant decisions are now the ADRs above; the rest is captured in
+`reference/` and `explanation/`. The specs themselves are retired (commit 3).
