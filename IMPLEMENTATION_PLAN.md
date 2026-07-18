@@ -74,7 +74,12 @@ Regenerate the GH block below: `bash loop.sh plan` (see PROMPT_plan.md).
       src/main/helper-lifecycle.js — with full node --test coverage. Electron spawn
       wiring + R12/R13 runtime behaviour tracked as #78, blocked on #53's binary.)
 - [ ] #78  F2b  Wire the F2 lifecycle/parser into Electron main (spawn, R12/R13)  · sev:high · v:human
-- [ ] #55  F3  Field qualification as a pure function + denylist storage  · sev:high · v:auto
+- [x] #55  F3  Field qualification as a pure function + denylist storage  · sev:high · v:auto
+      (Shipped pure electron-free src/main/field-qualify.js — qualifies() with R2
+      secure hard-no, R3 default denylist, min-size heuristic, plus denylist
+      merge/normalize — under node --test. settings.js gains getDenylist/setDenylist
+      delegating to the tested normalizer; the electron wrapper itself isn't
+      unit-loadable, same split as #54.)
 - [ ] #56  F4  Ghost icon: window follows the focused field  · sev:high · v:human
 - [ ] #57  F5  Icon unfolds the action panel (selection path)  · sev:high · v:human
 - [ ] #59  F7  Whole-field read + verified apply (the core dream)  · sev:high · v:human
