@@ -15,3 +15,4 @@ Format: `- [UTC] iter N/M → <short-sha>  cost=$X duration=Yms`
 - learning: bare `node --test` globs recursively into gitignored `.claude/worktrees/`, running a sibling branch's stale tests and reddening verify for reasons unrelated to your card. Scoped the test script to `test/` (fixed in package.json). If verify fails on tests you never touched, check for a polluting worktree first.
 - [2026-07-18T19:37:29Z] iter 4/10 → cae04dd  cost=$2.7723535000000004 duration=865090ms
 - learning: `loop.sh` exports its knobs (ONLY, MODEL, …) into the agent env, and the loop-sandbox tests inherited them — so `test/loop.test.mjs` failed 17 tests only when run from inside an `ONLY=N` iteration. The sandbox now deletes every loop/stub knob before spawning loop.sh (test/helpers/loop-sandbox.mjs KNOBS); if harness tests fail mysteriously, suspect inherited env first.
+- [2026-07-18T22:07:09Z] iter 1/10 → f145a26  cost=$6.940339999999997 duration=968889ms
