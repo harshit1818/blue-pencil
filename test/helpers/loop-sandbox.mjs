@@ -100,5 +100,9 @@ export function setupSandbox({ issues = DEFAULT_ISSUES, withOrigin = true } = {}
     read: (rel) => readFileSync(join(dir, rel), 'utf8'),
     exists: (rel) => existsSync(join(dir, rel)),
     writeFile: (rel, content) => writeFileSync(join(dir, rel), content),
+    commitAll: (msg) => {
+      git(dir, 'add', '-A')
+      git(dir, 'commit', '-q', '-m', msg)
+    },
   }
 }

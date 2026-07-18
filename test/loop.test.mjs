@@ -26,6 +26,17 @@ test('a dirty working tree stops before the agent runs', () => {
   assert.ok(!r.log.includes('iteration 1/'), 'must not start an iteration on a dirty tree')
 })
 
+test('a [~] v:auto card blocks the board-clear exit (no false success)', () => {
+  const sb = setupSandbox()
+  // Simulate a dead iteration that left card #100 in progress, then committed nothing else.
+  sb.writeFile('IMPLEMENTATION_PLAN.md', sb.read('IMPLEMENTATION_PLAN.md').replace('- [ ] #100', '- [~] #100'))
+  sb.commitAll('simulate half-done card')
+  const r = sb.run(3, { CLAUDE_ACTION: 'noop' })
+  assert.equal(r.status, EXIT.INPROGRESS)
+  assert.match(r.log, /in-progress \[~\] v:auto card/)
+  assert.ok(!r.log.includes('board clear'), 'a [~] card must not read as board clear')
+})
+
 test('a spinning agent (no commits) stops with the stall code, not OK', () => {
   const sb = setupSandbox()
   const r = sb.run(5, { CLAUDE_ACTION: 'noop', STALL_LIMIT: '2' })

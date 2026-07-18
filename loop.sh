@@ -79,6 +79,14 @@ if ! git diff --quiet -- IMPLEMENTATION_PLAN.md; then
 fi
 
 for i in $(seq 1 "$MAX_ITERS"); do
+  # A [~] v:auto card means a previous iteration started work and died mid-flight.
+  # That is NOT a clear board — treating it as one would be a false success. Stop and
+  # let a human inspect/reset the half-done card.
+  if grep -qE '^- \[~\].*v:auto' IMPLEMENTATION_PLAN.md; then
+    echo "=== ralph: in-progress [~] v:auto card found — half-done work, inspect and reset. ===" | tee -a .loop/loop.log
+    exit "$EXIT_INPROGRESS"
+  fi
+
   # Deterministic end: stop the moment no actionable cards remain. v:human cards stay
   # on the board forever, so "board clear" means no [ ] v:auto cards — not an empty
   # board. This guarantees the loop terminates.
