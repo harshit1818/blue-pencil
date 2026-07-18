@@ -7,7 +7,7 @@
   "main": "./out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
-    "test": "node --test",
+    "test": "node --test test/",
     "typecheck": "tsc -p tsconfig.json",
     "lint": "eslint .",
     "verify": "npm run typecheck && npm run lint && node scripts/secret-scan.mjs && npm test && npm run build",
