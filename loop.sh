@@ -19,6 +19,8 @@ cd "$(dirname "$0")"
 
 # Exit codes — distinct so automation/alerting can tell the states apart. The old
 # loop conflated "converged", "spinning", and "ran out of runway" into 0/1.
+# NOTE: test/loop.test.mjs mirrors this table (bash and node can't share the values);
+# change both together.
 EXIT_OK=0             # board clear or DONE sentinel — nothing left to do
 EXIT_STALL=1         # no commit for STALL_LIMIT iterations — the agent is spinning
 EXIT_BADARGS=2       # bad invocation

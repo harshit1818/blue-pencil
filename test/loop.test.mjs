@@ -4,7 +4,7 @@ import { mkdirSync, rmdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { setupSandbox } from './helpers/loop-sandbox.mjs'
 
-// Exit codes mirror the table documented at the top of loop.sh.
+// Mirror of the EXIT_* table at the top of loop.sh — keep in sync (see the NOTE there).
 const EXIT = { OK: 0, STALL: 1, BRANCH_MOVED: 3, DIRTY: 4, INPROGRESS: 5, MAXITERS: 6, PUSH: 7, ITER_FAILED: 8, LOCKED: 9 }
 
 test('board clear (no [ ] v:auto cards) exits OK without calling the agent', () => {
