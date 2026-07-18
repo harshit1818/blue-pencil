@@ -5,7 +5,37 @@ import { join } from 'node:path'
 import { setupSandbox } from './helpers/loop-sandbox.mjs'
 
 // Mirror of the EXIT_* table at the top of loop.sh — keep in sync (see the NOTE there).
-const EXIT = { OK: 0, STALL: 1, BRANCH_MOVED: 3, DIRTY: 4, INPROGRESS: 5, MAXITERS: 6, PUSH: 7, ITER_FAILED: 8, LOCKED: 9 }
+const EXIT = { OK: 0, STALL: 1, BADARGS: 2, BRANCH_MOVED: 3, DIRTY: 4, INPROGRESS: 5, MAXITERS: 6, PUSH: 7, ITER_FAILED: 8, LOCKED: 9 }
+
+test('ONLY targets one issue: its number is injected into the prompt', () => {
+  const sb = setupSandbox()
+  const r = sb.run(1, { CLAUDE_ACTION: 'commit', ONLY: '100' })
+  const prompt = sb.read('.loop/claude-stdin.log')
+  assert.match(prompt, /Work ONLY on GitHub issue #100/)
+  assert.match(r.log, /target=#100/)
+  assert.equal(r.status, EXIT.MAXITERS) // committed but card not flipped -> #100 still open
+})
+
+test('ONLY for an issue not on the board stops immediately without the agent', () => {
+  const sb = setupSandbox() // board has open v:auto #100, but we target #999
+  const r = sb.run(3, { CLAUDE_ACTION: 'commit', ONLY: '999' })
+  assert.equal(r.status, EXIT.OK)
+  assert.match(r.log, /issue #999 is not an open/)
+  assert.ok(!sb.exists('.loop/claude-stdin.log'), 'agent must not run for an absent target')
+})
+
+test('ONLY must be numeric', () => {
+  const sb = setupSandbox()
+  const r = sb.run(1, { ONLY: 'abc' })
+  assert.equal(r.status, EXIT.BADARGS)
+  assert.match(r.stderr + r.log, /ONLY must be an issue number/)
+})
+
+test('without ONLY, no target line is injected', () => {
+  const sb = setupSandbox()
+  sb.run(1, { CLAUDE_ACTION: 'commit' })
+  assert.ok(!sb.read('.loop/claude-stdin.log').includes('Work ONLY on GitHub issue'))
+})
 
 test('board clear (no [ ] v:auto cards) exits OK without calling the agent', () => {
   // Only a v:human card open -> the projected board has no [ ] v:auto card.
