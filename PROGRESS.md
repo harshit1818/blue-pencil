@@ -8,3 +8,4 @@ something future iterations need (a wrong assumption, a command that took tries)
 Format: `- [UTC] iter N/M → <short-sha>  cost=$X duration=Yms`
 
 <!-- entries below -->
+- [2026-07-18T19:15:02Z] iter 1/10 → 8263fbd  cost=$0.912548 duration=201828ms
