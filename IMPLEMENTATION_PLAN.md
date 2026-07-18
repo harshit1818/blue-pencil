@@ -37,7 +37,6 @@ Regenerate the GH block below: `bash loop.sh plan` (see PROMPT_plan.md).
 - [ ] #7  A1  Overlay grows off the bottom of the screen when a result loads  · sev:high · v:human
 - [ ] #8  A2  Overlay positioned using the previous summon's stale size  · sev:medium · v:human
 - [ ] #46  A8  Re-pressing the hotkey with text selected sometimes shows the empty-state hint  · sev:medium · v:human
-- [x] #51  A10  Extract overlay clamp geometry as a pure tested helper (groundwork for #7/#1/#8)  · sev:medium · v:auto
 - [ ] #47  A9  Make the hotkey overlay draggable via a header grab strip  · sev:low · v:human
 
 ## B — Renderer state & component architecture (#14)
@@ -59,7 +58,6 @@ Regenerate the GH block below: `bash loop.sh plan` (see PROMPT_plan.md).
 ## D — Theming & styling (#31)
 
 - [ ] #32  D1  pill()/sectionLabel style factories duplicated across App and ActionPanel  · sev:medium · v:human
-- [x] #33  D2  transition: 'all .12s' on every pill  · sev:low · v:auto
 - [ ] #34  D3  Hover/focus CSS injected as per-component style strings with cross-file coupling  · sev:low · v:human
 
 ## E — Security hardening (#36)
@@ -68,23 +66,14 @@ Regenerate the GH block below: `bash loop.sh plan` (see PROMPT_plan.md).
 
 ## F — Persistent field-anchored icon (Phase 3) (#52)
 
-- [ ] #53  F1  AX probe CLI + per-app truth table (M0)  · sev:high · v:human
-- [x] #54  F2  Helper lifecycle in Electron: spawn/respawn, heartbeat, NDJSON parser  · sev:high · v:auto
-      (Split: shipped the two pure electron-free modules — src/main/ndjson.js and
-      src/main/helper-lifecycle.js — with full node --test coverage. Electron spawn
-      wiring + R12/R13 runtime behaviour tracked as #78, blocked on #53's binary.)
-- [ ] #78  F2b  Wire the F2 lifecycle/parser into Electron main (spawn, R12/R13)  · sev:high · v:human
-- [x] #55  F3  Field qualification as a pure function + denylist storage  · sev:high · v:auto
-      (Shipped pure electron-free src/main/field-qualify.js — qualifies() with R2
-      secure hard-no, R3 default denylist, min-size heuristic, plus denylist
-      merge/normalize — under node --test. settings.js gains getDenylist/setDenylist
-      delegating to the tested normalizer; the electron wrapper itself isn't
-      unit-loadable, same split as #54.)
-- [ ] #56  F4  Ghost icon: window follows the focused field  · sev:high · v:human
-- [ ] #57  F5  Icon unfolds the action panel (selection path)  · sev:high · v:human
-- [ ] #59  F7  Whole-field read + verified apply (the core dream)  · sev:high · v:human
-- [ ] #58  F6  Field-anchor the hotkey overlay (closes #1's core complaint)  · sev:medium · v:human
-- [ ] #60  F8  Denylist editing UI in settings  · sev:low · v:human
+- [ ] #53  F1  AX probe CLI + per-app truth table (M0)  · sev:high · v:auto
+- [ ] #56  F4  Ghost icon: window follows the focused field  · sev:high · v:auto
+- [ ] #57  F5  Icon unfolds the action panel (selection path)  · sev:high · v:auto
+- [ ] #59  F7  Whole-field read + verified apply (the core dream)  · sev:high · v:auto
+- [ ] #78  F2b — Wire the F2 lifecycle/parser into Electron main (spawn, R12/R13)  · sev:high · v:auto
+- [ ] #83  F1b — Run ax-probe against the five target apps; record the truth-table go/no-go  · sev:high · v:human
+- [ ] #58  F6  Field-anchor the hotkey overlay (closes #1's core complaint)  · sev:medium · v:auto
+- [ ] #60  F8  Denylist editing UI in settings  · sev:low · v:auto
 
 ## Ungrouped
 
