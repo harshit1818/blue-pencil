@@ -37,7 +37,7 @@ Regenerate the GH block below: `bash loop.sh plan` (see PROMPT_plan.md).
 - [ ] #7  A1  Overlay grows off the bottom of the screen when a result loads  · sev:high · v:human
 - [ ] #8  A2  Overlay positioned using the previous summon's stale size  · sev:medium · v:human
 - [ ] #46  A8  Re-pressing the hotkey with text selected sometimes shows the empty-state hint  · sev:medium · v:human
-- [ ] #51  A10  Extract overlay clamp geometry as a pure tested helper (groundwork for #7/#1/#8)  · sev:medium · v:auto
+- [x] #51  A10  Extract overlay clamp geometry as a pure tested helper (groundwork for #7/#1/#8)  · sev:medium · v:auto
 - [ ] #47  A9  Make the hotkey overlay draggable via a header grab strip  · sev:low · v:human
 
 ## B — Renderer state & component architecture (#14)
