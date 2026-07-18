@@ -59,6 +59,16 @@ rm -f .loop/DONE
 stall=0
 pushfail=0
 
+# A crashed or killed iteration can leave partial edits behind; a fresh agent must
+# never inherit them (loop memory lives in git, nowhere else). Refuse to start on a
+# dirty tree and let a human decide what that partial state was worth — do NOT
+# auto-reset. (.loop/ is gitignored, so the loop's own transient writes don't count.)
+if [ -n "$(git status --porcelain)" ]; then
+  echo "=== ralph: working tree is dirty — inspect and commit/reset before looping. ===" | tee -a .loop/loop.log
+  git status --short | tee -a .loop/loop.log
+  exit "$EXIT_DIRTY"
+fi
+
 # Regenerate the board from GitHub labels before working it. Idempotent: commits
 # (and pushes) only when GitHub has actually moved since the last run — otherwise a
 # no-op. This is what plan mode used to do, minus the agent and the format drift.

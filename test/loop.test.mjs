@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { setupSandbox, DEFAULT_ISSUES } from './helpers/loop-sandbox.mjs'
 
 // Exit codes mirror the table documented at the top of loop.sh.
-const EXIT = { OK: 0, STALL: 1, BRANCH_MOVED: 3, MAXITERS: 6, PUSH: 7 }
+const EXIT = { OK: 0, STALL: 1, BRANCH_MOVED: 3, DIRTY: 4, INPROGRESS: 5, MAXITERS: 6, PUSH: 7 }
 
 test('board clear (no [ ] v:auto cards) exits OK without calling the agent', () => {
   // Only a v:human card open -> the projected board has no [ ] v:auto card.
@@ -15,6 +15,15 @@ test('board clear (no [ ] v:auto cards) exits OK without calling the agent', () 
   const r = sb.run(3)
   assert.equal(r.status, EXIT.OK)
   assert.match(r.log, /board clear/)
+})
+
+test('a dirty working tree stops before the agent runs', () => {
+  const sb = setupSandbox()
+  sb.writeFile('leftover.txt', 'partial state from a dead iteration')
+  const r = sb.run(3, { CLAUDE_ACTION: 'commit' })
+  assert.equal(r.status, EXIT.DIRTY)
+  assert.match(r.log, /working tree is dirty/)
+  assert.ok(!r.log.includes('iteration 1/'), 'must not start an iteration on a dirty tree')
 })
 
 test('a spinning agent (no commits) stops with the stall code, not OK', () => {
