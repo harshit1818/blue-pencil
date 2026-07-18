@@ -21,7 +21,7 @@ function writeClaudeStub(bin) {
   writeExecutable(
     join(bin, 'claude'),
     `#!/usr/bin/env bash
-cat >/dev/null   # consume the piped prompt
+cat >> .loop/claude-stdin.log   # capture the piped prompt so tests can assert on it
 action="\${CLAUDE_ACTION:-noop}"
 case "$action" in
   noop)   exit 0 ;;
