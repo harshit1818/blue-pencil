@@ -1,21 +1,18 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { execFileSync, spawnSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, chmodSync, cpSync, mkdirSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { spawnSync } from 'node:child_process'
+import { cpSync } from 'node:fs'
 import { join } from 'node:path'
+import { mkTempGitRepo, writeExecutable, makeBin } from './helpers/git-sandbox.mjs'
 
 const HOOK = join(process.cwd(), 'scripts', 'githooks', 'pre-commit')
 
 // Runs the real pre-commit hook inside a throwaway git repo, with a fake `npm`
 // earlier on PATH that exits `code`. Returns the hook's exit status.
 function runHookWithFakeNpm(code) {
-  const dir = mkdtempSync(join(tmpdir(), 'hook-'))
-  execFileSync('git', ['init', '-q'], { cwd: dir })
-  const bin = join(dir, 'bin')
-  mkdirSync(bin)
-  writeFileSync(join(bin, 'npm'), `#!/usr/bin/env bash\nexit ${code}\n`)
-  chmodSync(join(bin, 'npm'), 0o755)
+  const dir = mkTempGitRepo('hook-')
+  const bin = makeBin(dir)
+  writeExecutable(join(bin, 'npm'), `#!/usr/bin/env bash\nexit ${code}\n`)
   cpSync(HOOK, join(dir, 'pre-commit'))
   const r = spawnSync('bash', ['pre-commit'], {
     cwd: dir,

@@ -77,21 +77,6 @@ Regenerate the GH block below: `bash loop.sh plan` (see PROMPT_plan.md).
 - [ ] #58  F6  Field-anchor the hotkey overlay (closes #1's core complaint)  · sev:medium · v:human
 - [ ] #60  F8  Denylist editing UI in settings  · sev:low · v:human
 
-## L — Loop harness & Ralph infrastructure (#73)
-
-- [ ] #61  L1 verify enforced by pre-commit hook, not prompt prose  · sev:critical · v:auto
-- [ ] #62  L2 deterministic regen-board script replaces the plan agent  · sev:high · v:auto
-- [ ] #64  L4 board-clear check misses [~] cards — false-success exit  · sev:high · v:auto
-- [ ] #66  L6 harden the claude invocation: timeout, retry, cost telemetry  · sev:high · v:auto
-- [ ] #72  L12 sandbox the loop: devcontainer with allowlisted egress  · sev:high · v:human
-- [ ] #63  L3 loop refuses to start an iteration on a dirty tree  · sev:medium · v:auto
-- [ ] #65  L5 honest exit codes; blocked card commits its [!] flip instead of stalling  · sev:medium · v:auto
-- [ ] #67  L7 remove hook-bypass instructions from prompts; clean headless profile  · sev:medium · v:human
-- [ ] #70  L10 v:auto policy: behavior-failing tests only; audit current labels  · sev:medium · v:human
-- [ ] #68  L8 AGENTS.md accuracy pass — verify description is wrong  · sev:low · v:human
-- [ ] #69  L9 workspace hygiene: gitignore .claude/, purge stale worktrees, loop lockfile  · sev:low · v:auto
-- [ ] #71  L11 per-iteration PROGRESS.md append with learnings  · sev:low · v:auto
-
 ## Ungrouped
 
 - [ ] #1  Overlay window positioning is cursor-anchored and gets clipped near screen edges  · sev:— · v:human
