@@ -49,13 +49,26 @@ test('non-response and unknown-id events are ignored', () => {
   assert.equal(ch.handleEvent({ type: 'response', id: 99, ok: true }), false)
 })
 
-test('tick past the deadline rejects with timeout; before it does not', async () => {
+test('a tick before the deadline leaves the request pending', async () => {
   const { ch } = channel()
   const p = ch.request('readValue', 'el-1', 0)
   ch.tick(999)
+  assert.equal(ch.handleEvent({ type: 'response', id: 1, ok: true, value: 'x' }), true)
+  assert.equal(await p, 'x')
+})
+
+test('a tick at the deadline rejects with timeout', async () => {
+  const { ch } = channel()
+  const p = ch.request('readValue', 'el-1', 0)
   ch.tick(1000)
   await assert.rejects(p, /timeout/)
   assert.equal(ch.handleEvent({ type: 'response', id: 1, ok: true, value: 'late' }), false)
+})
+
+test('request without a finite now throws instead of silently disabling the timeout', () => {
+  const { ch, sent } = channel()
+  assert.throws(() => ch.request('readValue', 'el-1'), /finite/)
+  assert.equal(sent.length, 0)
 })
 
 test('failAll rejects everything in flight', async () => {
@@ -203,6 +216,27 @@ test('re-reading rebinds the session to the new element identity', async () => {
   await f.read(focus({ elementId: 'el-2' }))
   await f.apply('rewritten')
   assert.deepEqual(calls.verify, ['el-2'])
+})
+
+test('overlapping reads: the older read resolving last cannot rebind the session', async () => {
+  const resolvers = new Map()
+  const verified = []
+  const f = createWholeFieldFlow({
+    readValue: (id) => new Promise((resolve) => resolvers.set(id, resolve)),
+    verifyFocus: async (id) => {
+      verified.push(id)
+      return true
+    },
+    applyReplace: async () => {}
+  })
+  const a = f.read(focus({ elementId: 'el-a' }))
+  const b = f.read(focus({ elementId: 'el-b' }))
+  resolvers.get('el-b')('text-b')
+  assert.deepEqual(await b, { ok: true, text: 'text-b' })
+  resolvers.get('el-a')('text-a')
+  assert.deepEqual(await a, { ok: false, reason: 'stale-read' })
+  assert.deepEqual(await f.apply('rewritten'), { applied: true })
+  assert.deepEqual(verified, ['el-b'])
 })
 
 test('a failing applyReplace is reported, not thrown', async () => {

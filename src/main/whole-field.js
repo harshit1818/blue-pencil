@@ -22,6 +22,9 @@ export function createRequestChannel({ send, timeoutMs = 3000 }) {
   const pending = new Map()
   return {
     request(type, elementId, now) {
+      // A forgotten `now` would make the deadline NaN and silently disable
+      // the timeout — fail loudly at the call site instead.
+      if (!Number.isFinite(now)) throw new TypeError('request() needs a finite `now` (ms)')
       return new Promise((resolve, reject) => {
         const id = nextId++
         try {
@@ -66,18 +69,23 @@ export function createRequestChannel({ send, timeoutMs = 3000 }) {
 // consumed by apply (success or abort) and reset by every read.
 export function createWholeFieldFlow({ readValue, verifyFocus, applyReplace }) {
   let session = null
+  let readGen = 0
   return {
     async read(focus) {
       session = null
       if (!focus?.elementId) return { ok: false, reason: 'no-field' }
       if (focus.secure) return { ok: false, reason: 'secure' }
       if (focus.hasSelection) return { ok: false, reason: 'selection' }
+      const gen = ++readGen
       let text
       try {
         text = await readValue(focus.elementId)
       } catch {
         return { ok: false, reason: 'read-failed' }
       }
+      // A newer read started while we awaited — this result is stale and must
+      // not rebind the session to the older element.
+      if (gen !== readGen) return { ok: false, reason: 'stale-read' }
       session = { elementId: focus.elementId }
       return { ok: true, text }
     },
