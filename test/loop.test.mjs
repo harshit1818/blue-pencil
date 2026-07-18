@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { setupSandbox, DEFAULT_ISSUES } from './helpers/loop-sandbox.mjs'
 
 // Exit codes mirror the table documented at the top of loop.sh.
-const EXIT = { OK: 0, STALL: 1, BRANCH_MOVED: 3, DIRTY: 4, INPROGRESS: 5, MAXITERS: 6, PUSH: 7 }
+const EXIT = { OK: 0, STALL: 1, BRANCH_MOVED: 3, DIRTY: 4, INPROGRESS: 5, MAXITERS: 6, PUSH: 7, ITER_FAILED: 8 }
 
 test('board clear (no [ ] v:auto cards) exits OK without calling the agent', () => {
   // Only a v:human card open -> the projected board has no [ ] v:auto card.
@@ -64,6 +64,32 @@ test('exhausting iterations with v:auto work still queued exits MAXITERS, not OK
   const r = sb.run(2, { CLAUDE_ACTION: 'commit' })
   assert.equal(r.status, EXIT.MAXITERS)
   assert.match(r.log, /still queued/)
+})
+
+test('a hung iteration is killed by the timeout and retried, then aborts', () => {
+  const sb = setupSandbox()
+  const r = sb.run(3, { CLAUDE_ACTION: 'sleep', CLAUDE_SLEEP: '10', ITER_TIMEOUT: '1', RETRIES: '1', BACKOFF: '0' })
+  assert.equal(r.status, EXIT.ITER_FAILED)
+  assert.match(r.log, /retry 1\/1/)
+  assert.match(r.log, /failed after 1 retries/)
+})
+
+test('a transient failure is retried and the loop continues', () => {
+  // fail1: the call fails once, then succeeds (and commits) on the retry.
+  const sb = setupSandbox()
+  const r = sb.run(1, { CLAUDE_ACTION: 'fail1', RETRIES: '2', BACKOFF: '0' })
+  assert.match(r.log, /retry 1\/2/)
+  assert.notEqual(r.status, EXIT.ITER_FAILED)
+  assert.equal(r.status, EXIT.MAXITERS) // committed but card not flipped -> work still queued
+})
+
+test('per-iteration telemetry is captured to .loop/iter-N.json and logged', () => {
+  const sb = setupSandbox()
+  sb.run(1, { CLAUDE_ACTION: 'cost' })
+  assert.ok(sb.exists('.loop/iter-1.json'), 'iteration result JSON must be captured')
+  assert.match(sb.read('.loop/iter-1.json'), /total_cost_usd/)
+  assert.match(sb.read('.loop/loop.log'), /cost=\$0\.5/)
+  assert.match(sb.read('.loop/loop.log'), /^\[\d{4}-\d{2}-\d{2}T/m) // timestamped lines
 })
 
 test('consecutive push failures abort with the push code', () => {

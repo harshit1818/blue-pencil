@@ -32,12 +32,39 @@ EXIT_ITER_FAILED=8   # the claude invocation failed past its retries
 MAX_ITERS="${1:-10}"
 STALL_LIMIT="${STALL_LIMIT:-2}"
 PUSH_FAIL_LIMIT="${PUSH_FAIL_LIMIT:-3}"
-MODEL="${MODEL:-sonnet}"          # sonnet for speed; set MODEL=opus for hard work
+ITER_TIMEOUT="${ITER_TIMEOUT:-1800}"  # seconds; kill a hung iteration (30m default)
+RETRIES="${RETRIES:-2}"               # extra attempts after a failed/timed-out call
+BACKOFF="${BACKOFF:-10}"              # seconds per attempt between retries
+MAX_TURNS="${MAX_TURNS:-}"           # optional per-iteration turn cap (empty = unset)
+MODEL="${MODEL:-sonnet}"             # sonnet for speed; set MODEL=opus for hard work
 PROMPT_FILE="PROMPT_build.md"
 
 case "$MAX_ITERS" in
   *[!0-9]*|'') echo "ralph: MAX_ITERS must be a number, got '$MAX_ITERS'" >&2; exit "$EXIT_BADARGS" ;;
 esac
+
+# Timestamped log line, mirrored to console and .loop/loop.log (created below).
+log() { echo "[$(date -u +%FT%TZ)] $*" | tee -a .loop/loop.log; }
+
+# Portable timeout — macOS ships no coreutils `timeout`. Runs a command in the
+# background and TERMs it if it outlives $1 seconds. Returns 124 on timeout.
+run_with_timeout() {
+  local secs="$1"; shift
+  local flag; flag="$(mktemp)"; rm -f "$flag"
+  "$@" &
+  local pid=$!
+  # Watcher fds go to /dev/null so its sleep can't hold our stdout pipe open (that
+  # would deadlock a caller capturing our output). Kill the sleep child promptly.
+  ( sleep "$secs"; kill -0 "$pid" 2>/dev/null && { : >"$flag"; pkill -P "$pid" 2>/dev/null; kill -TERM "$pid" 2>/dev/null; }; ) >/dev/null 2>&1 &
+  local watcher=$!
+  local rc=0
+  wait "$pid" 2>/dev/null || rc=$?
+  pkill -P "$watcher" 2>/dev/null || true
+  kill "$watcher" 2>/dev/null || true
+  wait "$watcher" 2>/dev/null || true
+  if [ -f "$flag" ]; then rm -f "$flag"; return 124; fi
+  return "$rc"
+}
 
 # Branch guard: the loop must never run on main (a rogue iteration would push
 # unreviewed commits straight to the default branch) and must stay on the branch
@@ -64,7 +91,7 @@ pushfail=0
 # dirty tree and let a human decide what that partial state was worth — do NOT
 # auto-reset. (.loop/ is gitignored, so the loop's own transient writes don't count.)
 if [ -n "$(git status --porcelain)" ]; then
-  echo "=== ralph: working tree is dirty — inspect and commit/reset before looping. ===" | tee -a .loop/loop.log
+  log "=== ralph: working tree is dirty — inspect and commit/reset before looping. ==="
   git status --short | tee -a .loop/loop.log
   exit "$EXIT_DIRTY"
 fi
@@ -75,7 +102,7 @@ fi
 node scripts/regen-board.mjs 2>&1 | tee -a .loop/loop.log
 if ! git diff --quiet -- IMPLEMENTATION_PLAN.md; then
   git commit -q -m "docs(plan): regenerate board from GitHub labels" -- IMPLEMENTATION_PLAN.md
-  git push origin "$BRANCH" 2>&1 | tee -a .loop/loop.log || echo "=== ralph: board push failed (continuing) ===" | tee -a .loop/loop.log
+  git push origin "$BRANCH" 2>&1 | tee -a .loop/loop.log || log "=== ralph: board push failed (continuing) ==="
 fi
 
 for i in $(seq 1 "$MAX_ITERS"); do
@@ -83,7 +110,7 @@ for i in $(seq 1 "$MAX_ITERS"); do
   # That is NOT a clear board — treating it as one would be a false success. Stop and
   # let a human inspect/reset the half-done card.
   if grep -qE '^- \[~\].*v:auto' IMPLEMENTATION_PLAN.md; then
-    echo "=== ralph: in-progress [~] v:auto card found — half-done work, inspect and reset. ===" | tee -a .loop/loop.log
+    log "=== ralph: in-progress [~] v:auto card found — half-done work, inspect and reset. ==="
     exit "$EXIT_INPROGRESS"
   fi
 
@@ -92,18 +119,40 @@ for i in $(seq 1 "$MAX_ITERS"); do
   # board. This guarantees the loop terminates.
   todo=$(grep -cE '^- \[ \].*v:auto' IMPLEMENTATION_PLAN.md || true)
   if [ "${todo:-0}" -eq 0 ]; then
-    echo "=== ralph: no [ ] v:auto cards left — board clear, stopping. ===" | tee -a .loop/loop.log
+    log "=== ralph: no [ ] v:auto cards left — board clear, stopping. ==="
     exit 0
   fi
 
   before="$(git rev-parse HEAD)"
-  echo "=== ralph iteration $i/$MAX_ITERS (${todo:-?} v:auto todo, model=$MODEL, stall=$stall) ===" | tee -a .loop/loop.log
+  log "=== ralph iteration $i/$MAX_ITERS (${todo:-?} v:auto todo, model=$MODEL, stall=$stall) ==="
 
-  cat "$PROMPT_FILE" | claude -p --dangerously-skip-permissions --model "$MODEL" 2>&1 \
-    | tee -a .loop/loop.log
+  # The agent's result JSON is captured per iteration (cost/duration/session live here);
+  # its stderr streams to the log. Bounded by a timeout and retried with backoff so a
+  # hung network call can't wedge the loop and a transient API blip can't kill it.
+  iter_out=".loop/iter-$i.json"
+  run_claude() {
+    claude -p --dangerously-skip-permissions --model "$MODEL" --output-format json \
+      ${MAX_TURNS:+--max-turns "$MAX_TURNS"} < "$PROMPT_FILE" > "$iter_out" 2>>.loop/loop.log
+  }
+  rc=1
+  for attempt in $(seq 0 "$RETRIES"); do
+    [ "$attempt" -gt 0 ] && { log "=== ralph: retry $attempt/$RETRIES (previous rc=$rc) ==="; sleep "$((attempt * BACKOFF))"; }
+    if run_with_timeout "$ITER_TIMEOUT" run_claude; then rc=0; break; else rc=$?; fi
+  done
+  if [ "$rc" -ne 0 ]; then
+    log "=== ralph: iteration $i failed after $RETRIES retries (rc=$rc; 124=timeout) — stopping. ==="
+    exit "$EXIT_ITER_FAILED"
+  fi
+
+  # Telemetry from the captured result JSON (missing/none -> "?").
+  read -r cost dur sess < <(node -e '
+    try { const d = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"))
+      process.stdout.write([d.total_cost_usd ?? "?", d.duration_ms ?? "?", d.session_id ?? "?"].join(" ")) }
+    catch { process.stdout.write("? ? ?") }' "$iter_out" 2>/dev/null || echo "? ? ?") || true
+  log "=== ralph: iteration $i done — cost=\$$cost duration=${dur}ms session=$sess ==="
 
   if [ -f .loop/DONE ]; then
-    echo "=== ralph: DONE sentinel found — plan complete, stopping. ===" | tee -a .loop/loop.log
+    log "=== ralph: DONE sentinel found — plan complete, stopping. ==="
     exit 0
   fi
 
@@ -111,7 +160,7 @@ for i in $(seq 1 "$MAX_ITERS"); do
   # never push from, or keep looping on, a branch we didn't start on.
   now="$(git branch --show-current)"
   if [ "$now" != "$BRANCH" ]; then
-    echo "=== ralph: checkout moved from '$BRANCH' to '${now:-detached}' — aborting. ===" | tee -a .loop/loop.log
+    log "=== ralph: checkout moved from '$BRANCH' to '${now:-detached}' — aborting. ==="
     exit "$EXIT_BRANCH_MOVED"
   fi
 
@@ -120,9 +169,9 @@ for i in $(seq 1 "$MAX_ITERS"); do
     # No commit. A blocked card now commits its own [!] board flip (see PROMPT_build.md),
     # so a true stall here means the agent is spinning — not that it hit a blocker.
     stall=$((stall + 1))
-    echo "=== ralph: no new commit ($stall/$STALL_LIMIT) ===" | tee -a .loop/loop.log
+    log "=== ralph: no new commit ($stall/$STALL_LIMIT) ==="
     if [ "$stall" -ge "$STALL_LIMIT" ]; then
-      echo "=== ralph: stalled $STALL_LIMIT iterations — the agent is spinning, stopping. ===" | tee -a .loop/loop.log
+      log "=== ralph: stalled $STALL_LIMIT iterations — the agent is spinning, stopping. ==="
       exit "$EXIT_STALL"
     fi
   else
@@ -131,9 +180,9 @@ for i in $(seq 1 "$MAX_ITERS"); do
       pushfail=0
     else
       pushfail=$((pushfail + 1))
-      echo "=== ralph: push failed ($pushfail/$PUSH_FAIL_LIMIT) ===" | tee -a .loop/loop.log
+      log "=== ralph: push failed ($pushfail/$PUSH_FAIL_LIMIT) ==="
       if [ "$pushfail" -ge "$PUSH_FAIL_LIMIT" ]; then
-        echo "=== ralph: $PUSH_FAIL_LIMIT consecutive push failures — remote is unreachable, stopping. ===" | tee -a .loop/loop.log
+        log "=== ralph: $PUSH_FAIL_LIMIT consecutive push failures — remote is unreachable, stopping. ==="
         exit "$EXIT_PUSH"
       fi
     fi
@@ -143,8 +192,8 @@ done
 # Ran out of iterations. Whether that's success or a warning depends on the board:
 # work still queued means we stopped short, not that we finished.
 if [ "$(grep -cE '^- \[ \].*v:auto' IMPLEMENTATION_PLAN.md || true)" -gt 0 ]; then
-  echo "=== ralph: reached MAX_ITERS=$MAX_ITERS with v:auto work still queued. ===" | tee -a .loop/loop.log
+  log "=== ralph: reached MAX_ITERS=$MAX_ITERS with v:auto work still queued. ==="
   exit "$EXIT_MAXITERS"
 fi
-echo "=== ralph: reached MAX_ITERS=$MAX_ITERS — board clear. ===" | tee -a .loop/loop.log
+log "=== ralph: reached MAX_ITERS=$MAX_ITERS — board clear. ==="
 exit "$EXIT_OK"
