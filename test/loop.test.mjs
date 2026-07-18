@@ -16,8 +16,33 @@ test('a run with pushed work opens a draft PR and posts an independent review', 
   const gh = sb.read('.loop/gh-calls.log')
   assert.match(gh, /pr create --draft/)
   assert.match(gh, /pr comment/)
-  assert.ok(sb.exists('.loop/review.md'), 'the review agent output must be captured')
-  assert.match(sb.read('.loop/review.md'), /LGTM/) // from the review-aware claude stub
+  assert.ok(sb.exists('.loop/review-comment.md'), 'the triaged review comment must be captured')
+  assert.match(sb.read('.loop/review-comment.md'), /Independent review — LGTM/)
+})
+
+test('remediation: an objective finding triggers a bounded auto-fix that re-verifies', () => {
+  const sb = setupSandbox()
+  sb.run(1, { CLAUDE_ACTION: 'commit', STUB_OBJECTIVE: '1', VERIFY_CMD: 'true', REMEDIATION_ROUNDS: '2', ...PR_ENV })
+  assert.ok(sb.exists('fix-applied.txt'), 'the fix agent must have run on the objective finding')
+  assert.match(sb.gitLog(), /fix\(review\): address standards\/correctness findings \(round 1\)/)
+  assert.match(sb.read('.loop/loop.log'), /remediation round 1/)
+  // the product finding is surfaced, not auto-fixed
+  assert.ok(sb.exists('.loop/product.md') && sb.read('.loop/product.md').includes('b.js:2'))
+})
+
+test('remediation: a fix that fails verify is reverted and left for a human', () => {
+  const sb = setupSandbox()
+  sb.run(1, { CLAUDE_ACTION: 'commit', STUB_OBJECTIVE: '1', VERIFY_CMD: 'false', REMEDIATION_ROUNDS: '2', ...PR_ENV })
+  assert.match(sb.read('.loop/loop.log'), /remediation verify RED/)
+  assert.ok(!sb.gitLog().includes('fix(review)'), 'a red fix must not be committed')
+})
+
+test('no objective findings: no fix pass, product checklist still posted', () => {
+  const sb = setupSandbox()
+  sb.run(1, { CLAUDE_ACTION: 'commit', VERIFY_CMD: 'true', ...PR_ENV }) // STUB_OBJECTIVE unset
+  assert.ok(!sb.gitLog().includes('fix(review)'), 'no fix commit without objective findings')
+  assert.ok(!sb.read('.loop/loop.log').includes('remediation round'), 'no remediation round')
+  assert.ok(sb.exists('.loop/product.md'))
 })
 
 test('AUTO_PR=0 disables PR creation (and therefore the review)', () => {

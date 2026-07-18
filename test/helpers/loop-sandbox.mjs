@@ -22,10 +22,18 @@ function writeClaudeStub(bin) {
     join(bin, 'claude'),
     `#!/usr/bin/env bash
 input="$(cat)"   # consume the piped prompt
-# The independent PR review is a separate claude call (PROMPT_review.md carries this
-# marker). It must NOT run the iteration action — just emit a review.
+# The review + fix agents are separate claude calls (their prompts carry markers).
+# They must NOT run the iteration action.
 case "$input" in
-  *RALPH-PR-REVIEW*) echo "LGTM — stub review."; exit 0 ;;
+  *RALPH-PR-REVIEW*)
+    c=.loop/review-round; n="$(cat "$c" 2>/dev/null || echo 0)"; echo $((n + 1)) > "$c"
+    if [ "$n" -eq 0 ] && [ "\${STUB_OBJECTIVE:-0}" = 1 ]; then
+      echo '{"verdict":"NEEDS-WORK","summary":"stub","findings":[{"category":"standards","severity":"minor","location":"a.js:1","issue":"x","fix":"y"},{"category":"product","severity":"major","location":"b.js:2","issue":"p"}]}'
+    else
+      echo '{"verdict":"LGTM","summary":"stub","findings":[{"category":"product","severity":"minor","location":"b.js:2","issue":"p"}]}'
+    fi
+    exit 0 ;;
+  *RALPH-FIX*) echo applied >> fix-applied.txt; exit 0 ;;
 esac
 action="\${CLAUDE_ACTION:-noop}"
 case "$action" in
@@ -82,6 +90,7 @@ export function setupSandbox({ issues = DEFAULT_ISSUES, withOrigin = true } = {}
   cpSync(join(ROOT, 'PROMPT_build.md'), join(dir, 'PROMPT_build.md'))
   cpSync(join(ROOT, 'PROMPT_review.md'), join(dir, 'PROMPT_review.md'))
   cpSync(join(ROOT, 'scripts', 'regen-board.mjs'), join(dir, 'scripts', 'regen-board.mjs'))
+  cpSync(join(ROOT, 'scripts', 'review-triage.mjs'), join(dir, 'scripts', 'review-triage.mjs'))
   writeFileSync(join(dir, 'IMPLEMENTATION_PLAN.md'), '# board\n<!-- GH:BEGIN -->\n<!-- GH:END -->\n')
 
   const env = { ...process.env, PATH: `${bin}:${process.env.PATH}` }
@@ -116,6 +125,7 @@ export function setupSandbox({ issues = DEFAULT_ISSUES, withOrigin = true } = {}
     },
     read: (rel) => readFileSync(join(dir, rel), 'utf8'),
     exists: (rel) => existsSync(join(dir, rel)),
+    gitLog: () => execFileSync('git', ['log', '--pretty=%s'], { cwd: dir, encoding: 'utf8' }),
     writeFile: (rel, content) => writeFileSync(join(dir, rel), content),
     commitAll: (msg) => {
       git(dir, 'add', '-A')

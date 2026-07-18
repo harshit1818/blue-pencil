@@ -47,7 +47,9 @@ MAX_TURNS="${MAX_TURNS:-}"           # optional per-iteration turn cap (empty = 
 MODEL="${MODEL:-sonnet}"             # sonnet for speed; set MODEL=opus for hard work
 BASE="${BASE:-main}"                 # PR base branch
 AUTO_PR="${AUTO_PR:-1}"              # open a draft PR for the run's work (1=on)
-AUTO_REVIEW="${AUTO_REVIEW:-1}"      # post an independent review comment on that PR (1=on)
+AUTO_REVIEW="${AUTO_REVIEW:-1}"      # post an independent review + triage on that PR (1=on)
+REMEDIATION_ROUNDS="${REMEDIATION_ROUNDS:-2}"  # max auto-fix rounds for objective findings
+VERIFY_CMD="${VERIFY_CMD:-npm run verify}"     # gate a remediation fix must pass
 PROMPT_FILE="PROMPT_build.md"
 
 case "$MAX_ITERS" in
@@ -76,16 +78,10 @@ ${cards:-（none detected）}
     2>&1 | tee -a .loop/loop.log || log "=== ralph: gh pr create failed (continuing) ==="
 }
 
-# A FRESH, separate agent reviews the run's diff and posts findings as a PR comment.
-# It did NOT write the code (no session continuity) — self-review is worthless. It only
-# reads the diff piped in and writes a review; it cannot merge and needs no repo tools.
-run_review() {
-  [ "$AUTO_REVIEW" = 1 ] || return 0
-  command -v gh >/dev/null 2>&1 || return 0
-  gh pr view "$BRANCH" >/dev/null 2>&1 || return 0   # only if a PR exists
-  [ -f PROMPT_review.md ] || return 0
-  log "=== ralph: running independent review on the PR diff ==="
-  local review=".loop/review.md" diff commits
+# Run one independent review (a FRESH agent — no session continuity with the author,
+# so it's a real review, not self-praise) over the run's diff. Writes JSON to $1.
+run_one_review() {
+  local out="$1" diff commits
   diff="$(git diff "origin/$BASE...HEAD" 2>/dev/null || true)"
   commits="$(git log "origin/$BASE..HEAD" --pretty='- %s' 2>/dev/null || true)"
   [ "${#diff}" -gt 150000 ] && diff="${diff:0:150000}
@@ -93,16 +89,66 @@ run_review() {
   { cat PROMPT_review.md
     printf '\n\n=== COMMITS ===\n%s\n' "$commits"
     printf '\n=== DIFF (origin/%s...HEAD) ===\n%s\n' "$BASE" "$diff"
-  } | claude -p --dangerously-skip-permissions --model "$MODEL" --output-format text > "$review" 2>>.loop/loop.log \
-    || { log "=== ralph: review agent failed (skipping comment) ==="; return 0; }
-  gh pr comment "$BRANCH" --body-file "$review" 2>&1 | tee -a .loop/loop.log || log "=== ralph: gh pr comment failed ==="
+  } | claude -p --dangerously-skip-permissions --model "$MODEL" --output-format text > "$out" 2>>.loop/loop.log
+}
+
+# Review -> triage -> remediate. Objective findings (standards/correctness) get a
+# bounded auto-fix pass that MUST pass VERIFY_CMD (else it's reverted), then a
+# re-review. Product/scope findings are surfaced to a human, never auto-fixed. The
+# loop never merges — accepting the work stays a human decision.
+review_and_remediate() {
+  [ "$AUTO_REVIEW" = 1 ] || return 0
+  command -v gh >/dev/null 2>&1 || return 0
+  gh pr view "$BRANCH" >/dev/null 2>&1 || return 0   # only if a PR exists
+  [ -f PROMPT_review.md ] || return 0
+  local review=".loop/review.json" round=0 objn
+  while :; do
+    log "=== ralph: independent review (round $round) ==="
+    run_one_review "$review" || { log "=== ralph: review agent failed — skipping ==="; return 0; }
+    node scripts/review-triage.mjs comment "$review" > .loop/review-comment.md 2>>.loop/loop.log || true
+    gh pr comment "$BRANCH" --body-file .loop/review-comment.md 2>&1 | tee -a .loop/loop.log || log "=== ralph: gh pr comment failed ==="
+
+    objn="$(node scripts/review-triage.mjs count "$review" 2>/dev/null || echo 0)"
+    [ "${objn:-0}" -eq 0 ] && break
+    if [ "$round" -ge "$REMEDIATION_ROUNDS" ]; then
+      log "=== ralph: remediation cap ($REMEDIATION_ROUNDS) reached — $objn objective finding(s) left for a human ==="
+      break
+    fi
+    round=$((round + 1))
+    log "=== ralph: remediation round $round — addressing $objn standards/correctness finding(s) ==="
+
+    # Fresh fix agent, addresses ONLY the objective findings; it does not commit.
+    node scripts/review-triage.mjs fixprompt "$review" \
+      | claude -p --dangerously-skip-permissions --model "$MODEL" > ".loop/fix-$round.log" 2>>.loop/loop.log \
+      || { log "=== ralph: fix agent failed — stopping remediation ==="; break; }
+
+    if [ -z "$(git status --porcelain)" ]; then
+      log "=== ralph: fix round $round changed nothing — stopping remediation ==="
+      break
+    fi
+    # The fix must pass the same gate as everything else, or it doesn't land.
+    if ! ${VERIFY_CMD} >>.loop/loop.log 2>&1; then
+      log "=== ralph: remediation verify RED — reverting the fix, leaving it for a human ==="
+      git reset --hard HEAD >>.loop/loop.log 2>&1 || true
+      break
+    fi
+    git add -A
+    git commit -n -q -m "fix(review): address standards/correctness findings (round $round)"
+    git push origin "$BRANCH" 2>&1 | tee -a .loop/loop.log || log "=== ralph: remediation push failed (continuing) ==="
+  done
+
+  # Product/scope findings from the final review -> a checklist for the human.
+  node scripts/review-triage.mjs product "$review" > .loop/product.md 2>/dev/null || true
+  if [ -s .loop/product.md ]; then
+    gh pr comment "$BRANCH" --body-file .loop/product.md 2>&1 | tee -a .loop/loop.log || log "=== ralph: product-checklist comment failed ==="
+  fi
 }
 
 # Terminal path when the run produced work: surface it (draft PR + review), then exit.
 finish() {
   if [ "${pushed_any:-0}" = 1 ]; then
     ensure_pr
-    run_review
+    review_and_remediate
   fi
   exit "$1"
 }
