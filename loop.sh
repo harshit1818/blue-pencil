@@ -17,13 +17,26 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
+# Exit codes — distinct so automation/alerting can tell the states apart. The old
+# loop conflated "converged", "spinning", and "ran out of runway" into 0/1.
+EXIT_OK=0             # board clear or DONE sentinel — nothing left to do
+EXIT_STALL=1         # no commit for STALL_LIMIT iterations — the agent is spinning
+EXIT_BADARGS=2       # bad invocation
+EXIT_BRANCH_MOVED=3  # checkout switched off the branch we started on
+EXIT_DIRTY=4         # working tree dirty at iteration start — inherited state
+EXIT_INPROGRESS=5    # a [~] v:auto card is on the board — half-done work
+EXIT_MAXITERS=6      # ran out of iterations with v:auto work still on the board
+EXIT_PUSH=7          # too many consecutive push failures
+EXIT_ITER_FAILED=8   # the claude invocation failed past its retries
+
 MAX_ITERS="${1:-10}"
 STALL_LIMIT="${STALL_LIMIT:-2}"
+PUSH_FAIL_LIMIT="${PUSH_FAIL_LIMIT:-3}"
 MODEL="${MODEL:-sonnet}"          # sonnet for speed; set MODEL=opus for hard work
 PROMPT_FILE="PROMPT_build.md"
 
 case "$MAX_ITERS" in
-  *[!0-9]*|'') echo "ralph: MAX_ITERS must be a number, got '$MAX_ITERS'" >&2; exit 2 ;;
+  *[!0-9]*|'') echo "ralph: MAX_ITERS must be a number, got '$MAX_ITERS'" >&2; exit "$EXIT_BADARGS" ;;
 esac
 
 # Branch guard: the loop must never run on main (a rogue iteration would push
@@ -32,7 +45,7 @@ esac
 BRANCH="$(git branch --show-current)"
 if [ -z "$BRANCH" ] || [ "$BRANCH" = main ] || [ "$BRANCH" = master ]; then
   echo "ralph: refusing to loop on '${BRANCH:-detached HEAD}' — create a work branch first." >&2
-  exit 2
+  exit "$EXIT_BADARGS"
 fi
 
 # The auto-worktree plugin bounces headless agents into scratch worktrees,
@@ -44,6 +57,7 @@ export CLAUDE_PLUGIN_OPTION_SKIP_DIRECTORIES="$(pwd)${CLAUDE_PLUGIN_OPTION_SKIP_
 mkdir -p .loop
 rm -f .loop/DONE
 stall=0
+pushfail=0
 
 # Regenerate the board from GitHub labels before working it. Idempotent: commits
 # (and pushes) only when GitHub has actually moved since the last run — otherwise a
@@ -80,21 +94,39 @@ for i in $(seq 1 "$MAX_ITERS"); do
   now="$(git branch --show-current)"
   if [ "$now" != "$BRANCH" ]; then
     echo "=== ralph: checkout moved from '$BRANCH' to '${now:-detached}' — aborting. ===" | tee -a .loop/loop.log
-    exit 1
+    exit "$EXIT_BRANCH_MOVED"
   fi
 
   after="$(git rev-parse HEAD)"
   if [ "$before" = "$after" ]; then
+    # No commit. A blocked card now commits its own [!] board flip (see PROMPT_build.md),
+    # so a true stall here means the agent is spinning — not that it hit a blocker.
     stall=$((stall + 1))
     echo "=== ralph: no new commit ($stall/$STALL_LIMIT) ===" | tee -a .loop/loop.log
     if [ "$stall" -ge "$STALL_LIMIT" ]; then
-      echo "=== ralph: stalled $STALL_LIMIT iterations — stopping to save tokens. ===" | tee -a .loop/loop.log
-      exit 1
+      echo "=== ralph: stalled $STALL_LIMIT iterations — the agent is spinning, stopping. ===" | tee -a .loop/loop.log
+      exit "$EXIT_STALL"
     fi
   else
     stall=0
-    git push origin "$BRANCH" 2>&1 | tee -a .loop/loop.log || echo "=== ralph: push failed (continuing) ===" | tee -a .loop/loop.log
+    if git push origin "$BRANCH" 2>&1 | tee -a .loop/loop.log; then
+      pushfail=0
+    else
+      pushfail=$((pushfail + 1))
+      echo "=== ralph: push failed ($pushfail/$PUSH_FAIL_LIMIT) ===" | tee -a .loop/loop.log
+      if [ "$pushfail" -ge "$PUSH_FAIL_LIMIT" ]; then
+        echo "=== ralph: $PUSH_FAIL_LIMIT consecutive push failures — remote is unreachable, stopping. ===" | tee -a .loop/loop.log
+        exit "$EXIT_PUSH"
+      fi
+    fi
   fi
 done
 
-echo "=== ralph: reached MAX_ITERS=$MAX_ITERS — stopping. ===" | tee -a .loop/loop.log
+# Ran out of iterations. Whether that's success or a warning depends on the board:
+# work still queued means we stopped short, not that we finished.
+if [ "$(grep -cE '^- \[ \].*v:auto' IMPLEMENTATION_PLAN.md || true)" -gt 0 ]; then
+  echo "=== ralph: reached MAX_ITERS=$MAX_ITERS with v:auto work still queued. ===" | tee -a .loop/loop.log
+  exit "$EXIT_MAXITERS"
+fi
+echo "=== ralph: reached MAX_ITERS=$MAX_ITERS — board clear. ===" | tee -a .loop/loop.log
+exit "$EXIT_OK"

@@ -18,9 +18,13 @@ on disk: read it, don't assume it.
 5. Add or extend the test that PROVES the fix (`node --test`). A `v:auto` card
    without a test that would fail before your change is not done — that is the
    whole point of the tag.
-6. Run `npm run verify` (lint + typecheck + test + build). It MUST pass. If you
-   cannot make it pass, revert your changes, mark the card `[!]` with a one-line
-   blocker note, and stop (do not commit broken code).
+6. Run `npm run verify` (typecheck + lint + secret-scan + test + build). It MUST
+   pass. If you cannot make it pass, revert your CODE changes, then flip the card
+   `[ ]` → `[!]` with a one-line blocker note and commit ONLY that board edit
+   (`docs(board): block #N — <reason>`). Committing the block (not leaving it in the
+   working tree) keeps the blocker in git, leaves a clean tree for the next
+   iteration, and moves HEAD so the loop advances to the next card instead of
+   counting a stall. Never commit broken code.
 7. Update the board: flip the card `[ ]` → `[x]`. Add any follow-ups/bugs you found
    as new cards with the right `v:auto`/`v:human` tag.
 8. Commit. One card = one commit. Conventional Commits style. Put `Closes #N` in
