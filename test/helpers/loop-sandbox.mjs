@@ -111,7 +111,17 @@ export function setupSandbox({ issues = DEFAULT_ISSUES, withOrigin = true } = {}
   // loop-issues.sh logs before the inner run even starts).
   writeFileSync(join(dir, '.gitignore'), '.loop/\n')
 
+  // Hermetic env: verify runs INSIDE a driver iteration (loop-issues.sh exports
+  // ONLY/BASE/... to the agent), so the loop's own control vars must not leak
+  // into the sandboxed loop.sh under test.
+  const LOOP_VARS = [
+    'AUTO_MERGE', 'AUTO_PR', 'AUTO_REVIEW', 'BACKOFF', 'BASE', 'BRANCH',
+    'ITER_TIMEOUT', 'ITERS_PER_ISSUE', 'MAX_TURNS', 'MODEL', 'ONLY',
+    'PUSH_FAIL_LIMIT', 'REMEDIATION_ROUNDS', 'RETRIES', 'STALL_LIMIT',
+    'VERIFY_CMD', 'CLAUDE_ACTION', 'CLAUDE_SLEEP', 'STUB_OBJECTIVE'
+  ]
   const env = { ...process.env, PATH: `${bin}:${process.env.PATH}` }
+  for (const k of LOOP_VARS) delete env[k]
   // Pre-populate the board so loop.sh's own regen is an idempotent no-op (clean tree).
   execFileSync('node', ['scripts/regen-board.mjs'], { cwd: dir, env, stdio: 'ignore' })
   git(dir, 'add', '-A')

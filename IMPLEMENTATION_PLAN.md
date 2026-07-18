@@ -69,11 +69,14 @@ Regenerate the GH block below: `bash loop.sh plan` (see PROMPT_plan.md).
 - [ ] #53  F1  AX probe CLI + per-app truth table (M0)  · sev:high · v:auto
 - [ ] #56  F4  Ghost icon: window follows the focused field  · sev:high · v:auto
 - [ ] #57  F5  Icon unfolds the action panel (selection path)  · sev:high · v:auto
-- [ ] #59  F7  Whole-field read + verified apply (the core dream)  · sev:high · v:auto
+- [x] #59  F7  Whole-field read + verified apply (the core dream)  · sev:high · v:auto
+      (Pure core shipped: `src/main/whole-field.js` request channel + review-then-apply
+      flow, invariants under test. Wiring + eyes-on split to #88.)
 - [ ] #78  F2b — Wire the F2 lifecycle/parser into Electron main (spawn, R12/R13)  · sev:high · v:auto
 - [ ] #83  F1b — Run ax-probe against the five target apps; record the truth-table go/no-go  · sev:high · v:human
 - [ ] #58  F6  Field-anchor the hotkey overlay (closes #1's core complaint)  · sev:medium · v:auto
 - [ ] #85  F4c — Eyes-on: ghost icon live behavior in the target apps  · sev:medium · v:human
+- [ ] #88  F7b — Wire the whole-field flow into main + panel (readValue, review UI, ⌘A⌘V apply)  · sev:high · v:human
 - [ ] #60  F8  Denylist editing UI in settings  · sev:low · v:auto
 
 ## Ungrouped
