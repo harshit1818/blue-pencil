@@ -37,7 +37,7 @@ export default function ActionPanel({
     alignItems: 'center',
     gap: 6,
     whiteSpace: 'nowrap',
-    transition: 'all .12s'
+    transition: 'border-color .12s, background .12s, color .12s'
   })
 
   const sectionLabel = {

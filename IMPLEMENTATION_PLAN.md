@@ -59,7 +59,7 @@ Regenerate the GH block below: `bash loop.sh plan` (see PROMPT_plan.md).
 ## D — Theming & styling (#31)
 
 - [ ] #32  D1  pill()/sectionLabel style factories duplicated across App and ActionPanel  · sev:medium · v:human
-- [ ] #33  D2  transition: 'all .12s' on every pill  · sev:low · v:auto
+- [x] #33  D2  transition: 'all .12s' on every pill  · sev:low · v:auto
 - [ ] #34  D3  Hover/focus CSS injected as per-component style strings with cross-file coupling  · sev:low · v:human
 
 ## E — Security hardening (#36)
