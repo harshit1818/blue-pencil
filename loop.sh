@@ -3,7 +3,12 @@
 # iteration; progress lives in git + IMPLEMENTATION_PLAN.md, not in context.
 #
 # Usage:
-#   ./loop.sh [MAX_ITERS]        # default 10 iterations
+#   ./loop.sh [MAX_ITERS]        # default 10 iterations; works the whole v:auto queue
+#   ONLY=51 ./loop.sh [MAX_ITERS] # target one issue: restrict the run to card #51
+#
+# ONLY narrows the loop to a single issue — the board-clear check keys off that card
+# (so the run stops once #N is done) and the agent prompt gets a "work only on #N"
+# line. Without ONLY the agent picks the top v:auto card itself, as before.
 #
 # The board (IMPLEMENTATION_PLAN.md) is a projection of GitHub labels, regenerated
 # deterministically by scripts/regen-board.mjs at the top of every run. There is no
@@ -50,11 +55,28 @@ AUTO_PR="${AUTO_PR:-1}"              # open a draft PR for the run's work (1=on)
 AUTO_REVIEW="${AUTO_REVIEW:-1}"      # post an independent review + triage on that PR (1=on)
 REMEDIATION_ROUNDS="${REMEDIATION_ROUNDS:-2}"  # max auto-fix rounds for objective findings
 VERIFY_CMD="${VERIFY_CMD:-npm run verify}"     # gate a remediation fix must pass
+ONLY="${ONLY:-}"                     # optional: restrict the run to one issue number
 PROMPT_FILE="PROMPT_build.md"
 
 case "$MAX_ITERS" in
   *[!0-9]*|'') echo "ralph: MAX_ITERS must be a number, got '$MAX_ITERS'" >&2; exit "$EXIT_BADARGS" ;;
 esac
+if [ -n "$ONLY" ]; then
+  case "$ONLY" in
+    *[!0-9]*|'') echo "ralph: ONLY must be an issue number, got '$ONLY'" >&2; exit "$EXIT_BADARGS" ;;
+  esac
+fi
+
+# What counts as an actionable / in-progress card. Without ONLY: any v:auto card.
+# With ONLY: only that issue, so a targeted run stops once #ONLY is done and ignores
+# the rest of the board. [^0-9] after the number so #5 never matches #51.
+if [ -n "$ONLY" ]; then
+  TODO_RE="^- \[ \] #$ONLY[^0-9].*v:auto"
+  INPROGRESS_RE="^- \[~\] #$ONLY[^0-9].*v:auto"
+else
+  TODO_RE='^- \[ \].*v:auto'
+  INPROGRESS_RE='^- \[~\].*v:auto'
+fi
 
 # Timestamped log line, mirrored to console and .loop/loop.log (created below).
 log() { echo "[$(date -u +%FT%TZ)] $*" | tee -a .loop/loop.log; }
@@ -153,8 +175,9 @@ finish() {
   exit "$1"
 }
 
-# The one definition of "an actionable card": an unstarted ([ ]) v:auto card.
-count_todo() { grep -cE '^- \[ \].*v:auto' IMPLEMENTATION_PLAN.md || true; }
+# The one definition of "an actionable card": an unstarted ([ ]) v:auto card
+# (ONLY narrows it to a single issue via TODO_RE, set above).
+count_todo() { grep -cE "$TODO_RE" IMPLEMENTATION_PLAN.md || true; }
 
 # Portable timeout — macOS ships no coreutils `timeout`. Runs a command in the
 # background and TERMs it if it outlives $1 seconds. Returns 124 on timeout.
@@ -230,30 +253,40 @@ for i in $(seq 1 "$MAX_ITERS"); do
   # A [~] v:auto card means a previous iteration started work and died mid-flight.
   # That is NOT a clear board — treating it as one would be a false success. Stop and
   # let a human inspect/reset the half-done card.
-  if grep -qE '^- \[~\].*v:auto' IMPLEMENTATION_PLAN.md; then
+  if grep -qE "$INPROGRESS_RE" IMPLEMENTATION_PLAN.md; then
     log "=== ralph: in-progress [~] v:auto card found — half-done work, inspect and reset. ==="
     exit "$EXIT_INPROGRESS"
   fi
 
   # Deterministic end: stop the moment no actionable cards remain. v:human cards stay
   # on the board forever, so "board clear" means no [ ] v:auto cards — not an empty
-  # board. This guarantees the loop terminates.
+  # board (or, with ONLY, no open #ONLY card). This guarantees the loop terminates.
   todo=$(count_todo)
   if [ "${todo:-0}" -eq 0 ]; then
-    log "=== ralph: no [ ] v:auto cards left — board clear, stopping. ==="
+    if [ -n "$ONLY" ]; then
+      log "=== ralph: issue #$ONLY is not an open [ ] v:auto card — nothing to do, stopping. ==="
+    else
+      log "=== ralph: no [ ] v:auto cards left — board clear, stopping. ==="
+    fi
     finish 0
   fi
 
   before="$(git rev-parse HEAD)"
-  log "=== ralph iteration $i/$MAX_ITERS (${todo:-?} v:auto todo, model=$MODEL, stall=$stall) ==="
+  log "=== ralph iteration $i/$MAX_ITERS (${ONLY:+target=#$ONLY }${todo:-?} v:auto todo, model=$MODEL, stall=$stall) ==="
 
   # The agent's result JSON is captured per iteration (cost/duration/session live here);
   # its stderr streams to the log. Bounded by a timeout and retried with backoff so a
   # hung network call can't wedge the loop and a transient API blip can't kill it.
+  # The base prompt is piped on stdin; with ONLY, a target line is appended via printf
+  # (data, not shell args — a quoted issue number can't break parsing, cf. #748).
   iter_out=".loop/iter-$i.json"
   run_claude() {
-    claude -p --dangerously-skip-permissions --model "$MODEL" --output-format json \
-      ${MAX_TURNS:+--max-turns "$MAX_TURNS"} < "$PROMPT_FILE" > "$iter_out" 2>>.loop/loop.log
+    { cat "$PROMPT_FILE"
+      if [ -n "$ONLY" ]; then
+        printf '\n\n## This run\nWork ONLY on GitHub issue #%s this iteration; ignore every other card. If #%s is not an open `[ ]` `v:auto` card on the board, do nothing and stop.\n' "$ONLY" "$ONLY"
+      fi
+    } | claude -p --dangerously-skip-permissions --model "$MODEL" --output-format json \
+      ${MAX_TURNS:+--max-turns "$MAX_TURNS"} > "$iter_out" 2>>.loop/loop.log
   }
   rc=1
   for attempt in $(seq 0 "$RETRIES"); do

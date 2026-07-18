@@ -22,6 +22,7 @@ function writeClaudeStub(bin) {
     join(bin, 'claude'),
     `#!/usr/bin/env bash
 input="$(cat)"   # consume the piped prompt
+printf '%s' "$input" >> .loop/claude-stdin.log   # capture so tests can assert on it
 # The review + fix agents are separate claude calls (their prompts carry markers).
 # They must NOT run the iteration action.
 case "$input" in
