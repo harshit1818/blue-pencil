@@ -7,6 +7,47 @@ import { setupSandbox } from './helpers/loop-sandbox.mjs'
 // Mirror of the EXIT_* table at the top of loop.sh — keep in sync (see the NOTE there).
 const EXIT = { OK: 0, STALL: 1, BRANCH_MOVED: 3, DIRTY: 4, INPROGRESS: 5, MAXITERS: 6, PUSH: 7, ITER_FAILED: 8, LOCKED: 9 }
 
+// The sandbox origin only has the `work` branch, so point the PR base at it.
+const PR_ENV = { BASE: 'work' }
+
+test('a run with pushed work opens a draft PR and posts an independent review', () => {
+  const sb = setupSandbox()
+  sb.run(1, { CLAUDE_ACTION: 'commit', ...PR_ENV }) // commits + pushes, then maxiters -> finish
+  const gh = sb.read('.loop/gh-calls.log')
+  assert.match(gh, /pr create --draft/)
+  assert.match(gh, /pr comment/)
+  assert.ok(sb.exists('.loop/review.md'), 'the review agent output must be captured')
+  assert.match(sb.read('.loop/review.md'), /LGTM/) // from the review-aware claude stub
+})
+
+test('AUTO_PR=0 disables PR creation (and therefore the review)', () => {
+  const sb = setupSandbox()
+  sb.run(1, { CLAUDE_ACTION: 'commit', AUTO_PR: '0', ...PR_ENV })
+  const gh = sb.read('.loop/gh-calls.log')
+  assert.ok(!gh.includes('pr create'), 'no PR should be opened when AUTO_PR=0')
+  assert.ok(!gh.includes('pr comment'), 'no review without a PR')
+})
+
+test('AUTO_REVIEW=0 opens the PR but posts no review comment', () => {
+  const sb = setupSandbox()
+  sb.run(1, { CLAUDE_ACTION: 'commit', AUTO_REVIEW: '0', ...PR_ENV })
+  const gh = sb.read('.loop/gh-calls.log')
+  assert.match(gh, /pr create --draft/)
+  assert.ok(!gh.includes('pr comment'), 'no review comment when AUTO_REVIEW=0')
+})
+
+test('a run that pushes nothing opens no PR', () => {
+  // Only a v:human card -> board clear immediately, no commits pushed.
+  const issues = [
+    { number: 6, title: 'A — Section', labels: [{ name: 'epic:A' }] },
+    { number: 101, title: 'A2 — human only', labels: [{ name: 'epic:A' }, { name: 'severity:low' }, { name: 'verify:human' }] },
+  ]
+  const sb = setupSandbox({ issues })
+  sb.run(2, { CLAUDE_ACTION: 'commit', ...PR_ENV })
+  const gh = sb.exists('.loop/gh-calls.log') ? sb.read('.loop/gh-calls.log') : ''
+  assert.ok(!gh.includes('pr create'), 'no PR when the run produced no pushed work')
+})
+
 test('board clear (no [ ] v:auto cards) exits OK without calling the agent', () => {
   // Only a v:human card open -> the projected board has no [ ] v:auto card.
   const issues = [

@@ -21,7 +21,12 @@ function writeClaudeStub(bin) {
   writeExecutable(
     join(bin, 'claude'),
     `#!/usr/bin/env bash
-cat >/dev/null   # consume the piped prompt
+input="$(cat)"   # consume the piped prompt
+# The independent PR review is a separate claude call (PROMPT_review.md carries this
+# marker). It must NOT run the iteration action — just emit a review.
+case "$input" in
+  *RALPH-PR-REVIEW*) echo "LGTM — stub review."; exit 0 ;;
+esac
 action="\${CLAUDE_ACTION:-noop}"
 case "$action" in
   noop)   exit 0 ;;
@@ -41,7 +46,25 @@ esac
 }
 
 function writeGhStub(bin, jsonPath) {
-  writeExecutable(join(bin, 'gh'), `#!/usr/bin/env bash\ncat ${jsonPath}\n`)
+  // Arg-aware: `issue list` feeds regen-board; `pr view/create/comment` drive the
+  // draft-PR + review flow. Every call is logged so tests can assert the wiring.
+  writeExecutable(
+    join(bin, 'gh'),
+    `#!/usr/bin/env bash
+echo "gh $*" >> .loop/gh-calls.log 2>/dev/null || true
+case "$1" in
+  issue) cat ${jsonPath} ;;
+  pr)
+    case "$2" in
+      view)    [ -f .loop/pr-exists ] && exit 0 || exit 1 ;;
+      create)  : > .loop/pr-exists; echo "https://example.test/pr/1" ;;
+      comment) : ;;
+      *) : ;;
+    esac ;;
+  *) : ;;
+esac
+`,
+  )
 }
 
 export function setupSandbox({ issues = DEFAULT_ISSUES, withOrigin = true } = {}) {
@@ -57,6 +80,7 @@ export function setupSandbox({ issues = DEFAULT_ISSUES, withOrigin = true } = {}
   mkdirSync(join(dir, 'scripts'))
   cpSync(join(ROOT, 'loop.sh'), join(dir, 'loop.sh'))
   cpSync(join(ROOT, 'PROMPT_build.md'), join(dir, 'PROMPT_build.md'))
+  cpSync(join(ROOT, 'PROMPT_review.md'), join(dir, 'PROMPT_review.md'))
   cpSync(join(ROOT, 'scripts', 'regen-board.mjs'), join(dir, 'scripts', 'regen-board.mjs'))
   writeFileSync(join(dir, 'IMPLEMENTATION_PLAN.md'), '# board\n<!-- GH:BEGIN -->\n<!-- GH:END -->\n')
 

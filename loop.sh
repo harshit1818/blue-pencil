@@ -9,6 +9,11 @@
 # deterministically by scripts/regen-board.mjs at the top of every run. There is no
 # separate plan mode — a script does that job for free instead of a plan-mode agent.
 #
+# When a run produces pushed commits it opens a DRAFT PR (AUTO_PR=0 to disable) and a
+# separate, fresh agent posts an independent review comment (AUTO_REVIEW=0 to disable).
+# The loop NEVER merges — reviewing and merging stay human. This is the review-before-
+# merge gate; automating it away would defeat the whole v:auto/v:human split.
+#
 # Three independent stops guard against circles and token waste:
 #   1. MAX_ITERS      - hard cap, always terminates.
 #   2. stall detector - if HEAD doesn't move for STALL_LIMIT runs, the agent is
@@ -40,6 +45,9 @@ RETRIES="${RETRIES:-2}"               # extra attempts after a failed/timed-out 
 BACKOFF="${BACKOFF:-10}"              # seconds per attempt between retries
 MAX_TURNS="${MAX_TURNS:-}"           # optional per-iteration turn cap (empty = unset)
 MODEL="${MODEL:-sonnet}"             # sonnet for speed; set MODEL=opus for hard work
+BASE="${BASE:-main}"                 # PR base branch
+AUTO_PR="${AUTO_PR:-1}"              # open a draft PR for the run's work (1=on)
+AUTO_REVIEW="${AUTO_REVIEW:-1}"      # post an independent review comment on that PR (1=on)
 PROMPT_FILE="PROMPT_build.md"
 
 case "$MAX_ITERS" in
@@ -48,6 +56,56 @@ esac
 
 # Timestamped log line, mirrored to console and .loop/loop.log (created below).
 log() { echo "[$(date -u +%FT%TZ)] $*" | tee -a .loop/loop.log; }
+
+# Open a DRAFT PR for this run's branch if one doesn't already exist. Draft +
+# never-merge is the whole point: the loop surfaces work for review, a human decides.
+ensure_pr() {
+  [ "$AUTO_PR" = 1 ] || return 0
+  command -v gh >/dev/null 2>&1 || return 0
+  gh pr view "$BRANCH" >/dev/null 2>&1 && return 0   # already open
+  local cards; cards="$(git log "origin/$BASE..HEAD" --grep='Closes #' --pretty='- %s' 2>/dev/null || true)"
+  log "=== ralph: opening draft PR for $BRANCH ==="
+  gh pr create --draft --base "$BASE" --head "$BRANCH" \
+    --title "loop: $BRANCH" \
+    --body "Automated **draft** from loop.sh — review before marking ready; loop.sh never merges.
+
+Cards this run:
+${cards:-（none detected）}
+
+\`verify\` (typecheck/lint/secret-scan/test/build) passed for each commit. UI / \`v:human\` behaviour is NOT verified here." \
+    2>&1 | tee -a .loop/loop.log || log "=== ralph: gh pr create failed (continuing) ==="
+}
+
+# A FRESH, separate agent reviews the run's diff and posts findings as a PR comment.
+# It did NOT write the code (no session continuity) — self-review is worthless. It only
+# reads the diff piped in and writes a review; it cannot merge and needs no repo tools.
+run_review() {
+  [ "$AUTO_REVIEW" = 1 ] || return 0
+  command -v gh >/dev/null 2>&1 || return 0
+  gh pr view "$BRANCH" >/dev/null 2>&1 || return 0   # only if a PR exists
+  [ -f PROMPT_review.md ] || return 0
+  log "=== ralph: running independent review on the PR diff ==="
+  local review=".loop/review.md" diff commits
+  diff="$(git diff "origin/$BASE...HEAD" 2>/dev/null || true)"
+  commits="$(git log "origin/$BASE..HEAD" --pretty='- %s' 2>/dev/null || true)"
+  [ "${#diff}" -gt 150000 ] && diff="${diff:0:150000}
+[... diff truncated at 150k chars for review ...]"
+  { cat PROMPT_review.md
+    printf '\n\n=== COMMITS ===\n%s\n' "$commits"
+    printf '\n=== DIFF (origin/%s...HEAD) ===\n%s\n' "$BASE" "$diff"
+  } | claude -p --dangerously-skip-permissions --model "$MODEL" --output-format text > "$review" 2>>.loop/loop.log \
+    || { log "=== ralph: review agent failed (skipping comment) ==="; return 0; }
+  gh pr comment "$BRANCH" --body-file "$review" 2>&1 | tee -a .loop/loop.log || log "=== ralph: gh pr comment failed ==="
+}
+
+# Terminal path when the run produced work: surface it (draft PR + review), then exit.
+finish() {
+  if [ "${pushed_any:-0}" = 1 ]; then
+    ensure_pr
+    run_review
+  fi
+  exit "$1"
+}
 
 # The one definition of "an actionable card": an unstarted ([ ]) v:auto card.
 count_todo() { grep -cE '^- \[ \].*v:auto' IMPLEMENTATION_PLAN.md || true; }
@@ -101,6 +159,7 @@ trap 'rmdir .loop/lock 2>/dev/null || true' EXIT
 rm -f .loop/DONE
 stall=0
 pushfail=0
+pushed_any=0
 
 # A crashed or killed iteration can leave partial edits behind; a fresh agent must
 # never inherit them (loop memory lives in git, nowhere else). Refuse to start on a
@@ -118,7 +177,7 @@ fi
 node scripts/regen-board.mjs 2>&1 | tee -a .loop/loop.log
 if ! git diff --quiet -- IMPLEMENTATION_PLAN.md; then
   git commit -q -m "docs(plan): regenerate board from GitHub labels" -- IMPLEMENTATION_PLAN.md
-  git push origin "$BRANCH" 2>&1 | tee -a .loop/loop.log || log "=== ralph: board push failed (continuing) ==="
+  git push origin "$BRANCH" 2>&1 | tee -a .loop/loop.log && pushed_any=1 || log "=== ralph: board push failed (continuing) ==="
 fi
 
 for i in $(seq 1 "$MAX_ITERS"); do
@@ -136,7 +195,7 @@ for i in $(seq 1 "$MAX_ITERS"); do
   todo=$(count_todo)
   if [ "${todo:-0}" -eq 0 ]; then
     log "=== ralph: no [ ] v:auto cards left — board clear, stopping. ==="
-    exit 0
+    finish 0
   fi
 
   before="$(git rev-parse HEAD)"
@@ -169,7 +228,7 @@ for i in $(seq 1 "$MAX_ITERS"); do
 
   if [ -f .loop/DONE ]; then
     log "=== ralph: DONE sentinel found — plan complete, stopping. ==="
-    exit 0
+    finish 0
   fi
 
   # An iteration agent (or a session hook) may have switched the checkout —
@@ -188,7 +247,7 @@ for i in $(seq 1 "$MAX_ITERS"); do
     log "=== ralph: no new commit ($stall/$STALL_LIMIT) ==="
     if [ "$stall" -ge "$STALL_LIMIT" ]; then
       log "=== ralph: stalled $STALL_LIMIT iterations — the agent is spinning, stopping. ==="
-      exit "$EXIT_STALL"
+      finish "$EXIT_STALL"
     fi
   else
     stall=0
@@ -202,6 +261,7 @@ for i in $(seq 1 "$MAX_ITERS"); do
     git commit -n -q -m "chore(progress): iteration $i telemetry" || true
     if git push origin "$BRANCH" 2>&1 | tee -a .loop/loop.log; then
       pushfail=0
+      pushed_any=1
     else
       pushfail=$((pushfail + 1))
       log "=== ralph: push failed ($pushfail/$PUSH_FAIL_LIMIT) ==="
@@ -217,7 +277,7 @@ done
 # work still queued means we stopped short, not that we finished.
 if [ "$(count_todo)" -gt 0 ]; then
   log "=== ralph: reached MAX_ITERS=$MAX_ITERS with v:auto work still queued. ==="
-  exit "$EXIT_MAXITERS"
+  finish "$EXIT_MAXITERS"
 fi
 log "=== ralph: reached MAX_ITERS=$MAX_ITERS — board clear. ==="
-exit "$EXIT_OK"
+finish "$EXIT_OK"
