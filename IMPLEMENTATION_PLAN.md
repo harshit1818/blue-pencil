@@ -32,113 +32,69 @@ Regenerate the GH block below: `bash loop.sh plan` (see PROMPT_plan.md).
 
 <!-- GH:BEGIN — everything below is regenerated from GitHub; edit labels, not lines -->
 
-## A — Window & overlay state (#6)
+## A — Window & overlay state management (#6)
 
-- [ ] #10 A4  OS quit & Restart blocked by close handler        · sev:critical · v:human
-- [ ] #7  A1  overlay grows off the bottom when a result loads   · sev:high     · v:human
-- [ ] #9  A3  auto-paste Restart affordance never seen           · sev:high     · v:human
-- [ ] #8  A2  overlay positioned using previous summon's size    · sev:medium   · v:human
-- [x] #11 A5  saved bounds restored onto a missing display       · sev:medium   · v:auto
-- [ ] #46 A8  re-press of hotkey w/ selection shows empty state   · sev:medium   · v:human
-- [ ] #12 A6  popover reload leaves rendererReady stale in main  · sev:low      · v:human
-- [ ] #13 A7  hotkey registration failure is silent to the user  · sev:low      · v:human
-- [ ] #47 A9  draggable overlay via header grab strip             · sev:low      · v:human
+- [ ] #7  A1  Overlay grows off the bottom of the screen when a result loads  · sev:high · v:human
+- [ ] #8  A2  Overlay positioned using the previous summon's stale size  · sev:medium · v:human
+- [ ] #46  A8  Re-pressing the hotkey with text selected sometimes shows the empty-state hint  · sev:medium · v:human
+- [ ] #51  A10  Extract overlay clamp geometry as a pure tested helper (groundwork for #7/#1/#8)  · sev:medium · v:auto
+- [ ] #47  A9  Make the hotkey overlay draggable via a header grab strip  · sev:low · v:human
 
-## B — Renderer state & architecture (#14)
+## B — Renderer state & component architecture (#14)
 
-- [ ] #15 B1  ~130 lines duplicated between App & HotkeyPopover  · sev:medium   · v:human
-- [x] #17 B3  demo lorem seed; user text lost on restart         · sev:medium   · v:auto
-- [ ] #18 B4  overlay Enter double-fires against focused buttons · sev:medium   · v:human
-- [x] #16 B2  reTone drops the result markdown flag              · sev:low      · v:auto
-- [ ] #19 B5  stale shortcut comment + undiscoverable number keys· sev:low      · v:human
-- [ ] #20 B6  model-input echo clobbers fast typing              · sev:low      · v:human
-- [x] #21 B7  overlay result not invalidated on provider change  · sev:low      · v:auto
-- [x] #42 B9  in-flight result lands after provider switch       · sev:low      · v:auto
-- [x] #43 B10 in-flight result lands after fresh hotkey summon   · sev:low      · v:auto
-- [ ] #45 B11 action pill highlight stuck on Proofread            · sev:low      · v:human
-- [ ] #22 B8  refactor: shared useTransform hook + constants     · sev:—        · v:human
+- [ ] #15  B1  ~130 lines of hand-synced duplication between App.jsx and HotkeyPopover.jsx  · sev:medium · v:human
+- [ ] #18  B4  Overlay global Enter handler double-fires against focused buttons  · sev:medium · v:human
+- [ ] #19  B5  Stale shortcut comment ("1-4") and undiscoverable 1–9 number keys  · sev:low · v:human
+- [ ] #20  B6  Model-input write-through echo can clobber fast typing  · sev:low · v:human
+- [ ] #45  B11  Action pill highlight stuck on Proofread after running a different action  · sev:low · v:human
+- [ ] #22  B8  Refactor: shared useTransform hook + shared actions/constants module  · sev:— · v:human
 
 ## C — Accessibility & user feedback (#23)
 
-- [ ] #24 C1  loading spinner never spins                        · sev:high     · v:human
-- [x] #29 C6  dark theme contrast 2.60:1 fails WCAG AA           · sev:high     · v:auto
-      (per-theme `onPencil` token replaces all '#fff' literals; also fixed the
-      badge open state — white on dark-mode ink was 1.15:1, now paper on ink.
-      test/tokens-contrast.test.mjs guards ratios + bans '#fff' in renderer.)
-- [ ] #25 C2  disabled buttons don't look disabled               · sev:medium   · v:human
-- [x] #26 C3  no aria-live on result/error; no aria-busy         · sev:medium   · v:auto
-      (all in shared ActionPanel so both hosts get it: role="alert" on the error
-      row, role="status"+aria-live="polite" on the result container, aria-busy
-      on the controls block. test/aria-live.test.mjs guards statically.)
-- [x] #27 C4  unlabeled inputs (key, model, textarea)            · sev:medium   · v:auto
-      (aria-label on key input + textarea; Model span became <label htmlFor>.
-      test/input-labels.test.mjs guards statically.)
-- [ ] #28 C5  no focus management when the overlay appears       · sev:medium   · v:human
-- [ ] #30 C7  reduced-motion strips all transitions, no fallback · sev:low      · v:human
+- [ ] #24  C1  The loading spinner never spins  · sev:high · v:human
+- [ ] #25  C2  Disabled buttons don't look disabled  · sev:medium · v:human
+- [ ] #28  C5  No focus management when the overlay appears  · sev:medium · v:human
+- [ ] #30  C7  Blanket reduced-motion rule removes all transitions with no fallback feedback  · sev:low · v:human
 
 ## D — Theming & styling (#31)
 
-- [ ] #32 D1  pill()/sectionLabel factories duplicated          · sev:medium   · v:human
-- [ ] #33 D2  transition:'all .12s' on every pill               · sev:low      · v:human
-- [ ] #34 D3  hover/focus CSS as per-component style strings     · sev:low      · v:human
-- [x] #35 D4  hardcoded '#fff' / off-scale values vs tokens     · sev:low      · v:auto
-      (color half was fixed by C6's onPencil token — repro grep returns nothing.
-      Widened test/tokens-contrast.test.mjs from banning '#fff' to banning ANY
-      hex/rgb() literal in renderer, locking in the tokens contract. Off-scale
-      paddings left alone per the issue's own direction — D1/D3 cover styling.)
+- [ ] #32  D1  pill()/sectionLabel style factories duplicated across App and ActionPanel  · sev:medium · v:human
+- [ ] #33  D2  transition: 'all .12s' on every pill  · sev:low · v:auto
+- [ ] #34  D3  Hover/focus CSS injected as per-component style strings with cross-file coupling  · sev:low · v:human
 
 ## E — Security hardening (#36)
 
-- [x] #37 E1  no will-navigate / window-open guard on overlay   · sev:high     · v:auto
-      (app-wide `web-contents-created` hook in src/main/navigation-guard.js:
-      will-navigate allowed only to the dev origin / file: under appRoot,
-      http(s) routed to shell.openExternal, all else denied; window.open denied
-      everywhere. Replaces the main-window-only handler. Pure classify fn +
-      fake-electron wiring test in test/navigation-guard.test.mjs.)
-- [ ] #38 E2  sandbox:false on both BrowserWindows              · sev:medium   · v:human
-- [x] #39 E3  IPC endpoints lack sender/gesture validation      · sev:low      · v:auto
-      (src/main/ipc-guard.js: key:set / hotkey:pasteBack / accessibility:relaunch
-      honoured only for a top frame whose URL classifies 'allow' via the #37
-      navigation classifier — one definition of "our own page"; pasteBack also
-      requires the overlay to be visible. Pure fn + fake-ipcMain wiring test in
-      test/ipc-guard.test.mjs.)
-- [x] #40 E4  osascript escaping misses backslashes             · sev:low      · v:auto
-      (pure `escapeOsaString` in src/main/osa-escape.js escapes `\` before `"`;
-      automation.js pasteBack uses it. test/osa-escape.test.mjs proves the
-      trailing-backslash breakout repro from the issue.)
+- [ ] #38  E2  sandbox: false on both BrowserWindows  · sev:medium · v:human
+
+## F — Persistent field-anchored icon (Phase 3) (#52)
+
+- [ ] #53  F1  AX probe CLI + per-app truth table (M0)  · sev:high · v:human
+- [ ] #54  F2  Helper lifecycle in Electron: spawn/respawn, heartbeat, NDJSON parser  · sev:high · v:auto
+- [ ] #55  F3  Field qualification as a pure function + denylist storage  · sev:high · v:auto
+- [ ] #56  F4  Ghost icon: window follows the focused field  · sev:high · v:human
+- [ ] #57  F5  Icon unfolds the action panel (selection path)  · sev:high · v:human
+- [ ] #59  F7  Whole-field read + verified apply (the core dream)  · sev:high · v:human
+- [ ] #58  F6  Field-anchor the hotkey overlay (closes #1's core complaint)  · sev:medium · v:human
+- [ ] #60  F8  Denylist editing UI in settings  · sev:low · v:human
+
+## L — Loop harness & Ralph infrastructure (#73)
+
+- [ ] #61  L1 verify enforced by pre-commit hook, not prompt prose  · sev:critical · v:auto
+- [ ] #62  L2 deterministic regen-board script replaces the plan agent  · sev:high · v:auto
+- [ ] #64  L4 board-clear check misses [~] cards — false-success exit  · sev:high · v:auto
+- [ ] #66  L6 harden the claude invocation: timeout, retry, cost telemetry  · sev:high · v:auto
+- [ ] #72  L12 sandbox the loop: devcontainer with allowlisted egress  · sev:high · v:human
+- [ ] #63  L3 loop refuses to start an iteration on a dirty tree  · sev:medium · v:auto
+- [ ] #65  L5 honest exit codes; blocked card commits its [!] flip instead of stalling  · sev:medium · v:auto
+- [ ] #67  L7 remove hook-bypass instructions from prompts; clean headless profile  · sev:medium · v:human
+- [ ] #70  L10 v:auto policy: behavior-failing tests only; audit current labels  · sev:medium · v:human
+- [ ] #68  L8 AGENTS.md accuracy pass — verify description is wrong  · sev:low · v:human
+- [ ] #69  L9 workspace hygiene: gitignore .claude/, purge stale worktrees, loop lockfile  · sev:low · v:auto
+- [ ] #71  L11 per-iteration PROGRESS.md append with learnings  · sev:low · v:auto
 
 ## Ungrouped
 
-- [ ] #1  Overlay cursor-anchored, clipped near screen edges    · —            · v:human
-- [x] #2  Format shreds bare multi-line code into inline frags  · bug          · v:auto
-      (Prompt-level like #3: FORMAT_INSTRUCTION gains a bare-block rule — detect
-      an unfenced multi-line code / traceback / log run and wrap the WHOLE run in
-      one fence, verbatim, leading indentation intact — placed before the
-      inline-code rule, which now applies to prose only and never splits block
-      lines into inline fragments. Prompt-shape test in test/transform.test.mjs.
-      Live confirmation rides on #44, v:human. Side fix: eslint now ignores
-      .claude/** so stale session worktrees can't fail verify.)
-- [x] #3  Format flattens bullet lists into prose               · bug          · v:auto
-      (Prompt-level per the issue: FORMAT_INSTRUCTION now treats any existing
-      list marker (-, *, •, numbered) as a genuine enumeration — never collapse
-      into prose; the "genuine enumeration" judgment applies only to creating
-      NEW lists. Prompt-shape test in test/transform.test.mjs. Live Slack
-      confirmation rides on #44, v:human.)
-- [x] #4  Format loses blank lines / paragraph breaks           · bug          · v:auto
-      (Slack collapses adjacent <p> blocks to one newline on paste. New
-      mdToClipboardHtml merges p→p boundaries into explicit <br><br> at the
-      deliver seam only; automation.js writeResult uses it. Tests in
-      test/markdown.test.mjs. Suspect 1 — model omitting the blank line —
-      needs live eyeballs: follow-up #44, v:human.)
-- [x] #5  Format: deliberate auto-inline-code & Slack headers   · enhancement  · v:auto
-      (Decision made deliberate on both counts. Inline-code: scoped the
-      FORMAT_INSTRUCTION rule to literal code tokens only — commands, paths, env
-      vars, code-syntax identifiers — with an explicit "do NOT mark ordinary
-      technical nouns" clause; prompt-shape test in test/transform.test.mjs.
-      Headers: mdToClipboardHtml now downgrades h1–h6 to bold paragraphs at the
-      deliver seam (before the p→p merge, so they keep their blank line in
-      Slack); preview seam keeps real headings. Test in test/markdown.test.mjs;
-      doc tradeoff line updated. Live Slack look rides on #44, v:human.)
-- [ ] #44 Confirm Format fixes live: paragraph gaps + bullet lists · bug      · v:human
+- [ ] #1  Overlay window positioning is cursor-anchored and gets clipped near screen edges  · sev:— · v:human
+- [ ] #44  Confirm Format paragraph gaps survive a live Slack paste (post-#4 spacer fix)  · sev:low · v:human
 
 <!-- GH:END -->

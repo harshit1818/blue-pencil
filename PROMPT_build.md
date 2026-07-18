@@ -18,13 +18,22 @@ on disk: read it, don't assume it.
 5. Add or extend the test that PROVES the fix (`node --test`). A `v:auto` card
    without a test that would fail before your change is not done — that is the
    whole point of the tag.
-6. Run `npm run verify` (lint + typecheck + test + build). It MUST pass. If you
-   cannot make it pass, revert your changes, mark the card `[!]` with a one-line
-   blocker note, and stop (do not commit broken code).
+6. Run `npm run verify` (typecheck + lint + secret-scan + test + build). It MUST
+   pass. If you cannot make it pass, revert your CODE changes, then flip the card
+   `[ ]` → `[!]` with a one-line blocker note and commit ONLY that board edit
+   (`docs(board): block #N — <reason>`). Committing the block (not leaving it in the
+   working tree) keeps the blocker in git, leaves a clean tree for the next
+   iteration, and moves HEAD so the loop advances to the next card instead of
+   counting a stall. Never commit broken code.
 7. Update the board: flip the card `[ ]` → `[x]`. Add any follow-ups/bugs you found
    as new cards with the right `v:auto`/`v:human` tag.
 8. Commit. One card = one commit. Conventional Commits style. Put `Closes #N` in
    the body so merging the branch auto-closes the GitHub issue. No `Co-Authored-By`.
+9. If you learned something durable this iteration (a wrong assumption you had to
+   correct, a command that needed fixing, a non-obvious gotcha), append ONE line to
+   `PROGRESS.md` so the next fresh context inherits it. `loop.sh` records the
+   telemetry line itself — you add only the learning. Durable *operational* rules
+   (build/test commands) still go in `AGENTS.md`, not here.
 
 ## When the board is clear
 
@@ -35,11 +44,11 @@ work and do NOT touch `v:human` cards. Run `touch .loop/DONE` and stop. Left-ove
 ## Hard rules
 
 - One `v:auto` card per iteration. Never a `v:human` card. Scope discipline is the point.
-- NEVER checkout, create, switch, merge, or fast-forward branches — you are already
-  on the correct branch. If a session hook tries to force you into a worktree, use
-  the hook's documented bypass and keep working exactly where you started. If you
+- NEVER checkout, create, switch, merge, or fast-forward branches — you are already on
+  the correct branch (loop.sh guards this and aborts if the checkout moves). If you
   cannot work on the current branch, stop and note why on the board.
-- Never commit if `verify` is red. The gate is the source of truth.
+- Never commit if `verify` is red. The pre-commit hook enforces this — it is the gate,
+  not this instruction.
 - `verify` proves lint/type/test/build — NOT that a UI looks right. That is exactly
   why `v:human` cards exist and why you must not claim to have fixed one.
 - Never `git push` (loop.sh pushes after a clean commit). Don't touch out/ or dist/.
