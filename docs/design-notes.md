@@ -61,7 +61,7 @@ its name through the whole flow.
 | Element              | Text                                  |
 |----------------------|---------------------------------------|
 | Badge (closed)       | (pencil icon, no label)               |
-| Quick actions        | Proofread · Improve · Simplify · Summarize |
+| Quick actions        | Proofread · Improve · Simplify · Summarize · Paraphrase · Neutralize · Formalize · Coherence · Format |
 | Tone row             | Professional · Confident · Friendly · Concise |
 | Apply result         | **Replace** (not "Submit"/"Apply changes") |
 | Copy result          | Copy → Copied (transient)             |

@@ -56,8 +56,9 @@ box. It is the one memorable thing; everything else stays quiet.
 - Clicking it opens a popover anchored to the box (does not push layout, floats above).
 - The icon toggles: pencil when closed, × when open.
 - Clicking outside the popover closes it.
-- The popover holds: quick actions (Proofread, Improve, Simplify, Summarize),
-  a Tone row (Professional, Confident, Friendly, Concise), and the result.
+- The popover holds: quick actions (Proofread, Improve, Simplify, Summarize,
+  Paraphrase, Neutralize, Formalize, Coherence, Format), a Tone row
+  (Professional, Confident, Friendly, Concise), and the result.
 - Results show inside the popover with **Replace** (writes back into the box) and **Copy**.
 - Proofread additionally lists each correction as `before → after (reason)`,
   struck text in mark-red, replacement in pencil-blue.
@@ -79,7 +80,8 @@ main process             owns the API key; makes the model call
    │  reads key from macOS Keychain (never plaintext, never in renderer)
    ▼
 provider adapter         single seam — ask(prompt) → string
-                         default: Anthropic; swappable: OpenAI, Ollama (local)
+                         default: Anthropic (native SDK); swappable: OpenAI,
+                         Groq, Gemini (all via the OpenAI-compatible API)
 ```
 
 **Key handling:** stored in macOS Keychain via `keytar` or Electron `safeStorage`.

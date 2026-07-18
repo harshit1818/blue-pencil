@@ -38,7 +38,8 @@ inline-editable capture is a documented fast-follow, deferred to keep this from
 becoming a second editor.
 
 ### Actions & delivery
-Same action set as in-app (Proofread, Improve, Simplify, Summarize, Tone). The
+Same action set as in-app (Proofread, Improve, Simplify, Summarize, Paraphrase,
+Neutralize, Formalize, Coherence, Format), plus the Tone row. The
 result's primary button is **permission-dependent**, decided at runtime:
 - **No Accessibility (v0):** primary is **Copy**, with the hint "Copied — press ⌘V
   in your app." Popover stays open after Copy so another action can be tried.

@@ -6,14 +6,15 @@ loaded every iteration.
 
 ## Commands (the backpressure gate)
 
-- `npm run verify` — typecheck + tests + build. **Must pass before every commit.**
-- `npm run typecheck` — `tsc --checkJs` only (fast; use while iterating).
+- `npm run verify` — typecheck → lint → secret scan → tests → build, in that
+  order. **Must pass before every commit.**
+- `npm run typecheck` — `tsc -p tsconfig.json` only (fast; use while iterating).
 - `npm test` — `node --test` unit tests.
 - `npm run build` — `electron-vite build`.
 
-There is no lint step yet and no e2e — Electron UI behaviour (overlay on a
-fullscreen Space, paste-back) is NOT machine-verifiable here. Do not claim UI
-behaviour works from a green `verify`; only claim what the gate actually checks.
+There is no e2e — Electron UI behaviour (overlay on a fullscreen Space,
+paste-back) is NOT machine-verifiable here. Do not claim UI behaviour works
+from a green `verify`; only claim what the gate actually checks.
 
 ## Layout
 

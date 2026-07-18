@@ -70,9 +70,10 @@ Default model ids per provider live in `src/main/providers.js` and are
 overridable from the picker — confirm the current ids for OpenAI/Groq/Gemini,
 since those move fast. To add a provider, add one entry to that file.
 
-A gitleaks pre-commit hook guards against committing secrets — enable it with
-`pip install pre-commit && pre-commit install`. Keys belong in the Keychain (via
-the picker) or a gitignored `.env`, never in tracked files.
+A dependency-free secret scan (`scripts/secret-scan.mjs`) runs as part of
+`npm run verify` and fails the gate if it finds likely secrets in tracked files.
+Keys belong in the Keychain (via the picker) or a gitignored `.env`, never in
+tracked files.
 
 ## Global hotkey
 
