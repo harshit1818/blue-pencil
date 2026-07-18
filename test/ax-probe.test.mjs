@@ -50,6 +50,18 @@ test('the single AXValue read sits behind the isSecure guard in readValue()', ()
   assert.match(body.slice(guardAt, readAt), /return emit\(/, 'secure branch must return before the read')
 })
 
+test('no other route to an AXValue read exists in the source', () => {
+  // Tripwire against bypasses the count above misses: building the attribute
+  // name at runtime, or calling the raw AX API outside copyAttr.
+  assert.ok(!src.includes('"AXValue"'), 'AXValue attribute must not be built from a string literal')
+  assert.equal(src.split('AXUIElementCopyAttributeValue').length, 2, 'raw attribute reads only inside copyAttr')
+  const calls = [...src.matchAll(/(?<!func )\b(?:copyAttr|stringAttr|elementAttr)\([^,]+,\s*([^)]+)\)/g)]
+  assert.ok(calls.length > 0)
+  for (const [call, attrArg] of calls) {
+    assert.ok(attrArg === 'attr' || attrArg.startsWith('kAX'), `non-constant attribute arg in: ${call}`)
+  }
+})
+
 test('emitted event shapes flow through the parser into qualifies()', () => {
   const p = createNdjsonParser()
   const focus =

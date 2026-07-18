@@ -13,6 +13,8 @@
 // stdin — request/response:
 //   {"op":"readValue","elementId"}   → {"type":"readValue","elementId","ok","value"|"error"}
 //   {"op":"verifyFocus","elementId"} → {"type":"verifyFocus","elementId","match"}
+// An elementId is only valid while it is the CURRENT focus — requests against
+// any other id answer ok:false / match:false. Do not cache ids across focus events.
 //
 // Coordinates are global-screen, top-left origin as AX reports them — the truth
 // table (docs/phase3/truth-table.md) verifies that per app rather than trusting it.
@@ -167,7 +169,10 @@ func observe(_ app: NSRunningApplication) {
   observedPid = pid
   currentBundleId = app.bundleIdentifier ?? ""
   var obs: AXObserver?
-  guard AXObserverCreate(pid, axCallback, &obs) == .success, let o = obs else { return blurIfNeeded() }
+  guard AXObserverCreate(pid, axCallback, &obs) == .success, let o = obs else {
+    observedPid = 0  // else the pid == observedPid early-return blocks any retry
+    return blurIfNeeded()
+  }
   observer = o
   CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(o), .defaultMode)
   let appEl = AXUIElementCreateApplication(pid)
