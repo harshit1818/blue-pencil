@@ -19,7 +19,7 @@ if [ "${1:-}" = "plan" ]; then MODE=plan; shift; fi
 MAX_ITERS="${1:-10}"
 STALL_LIMIT="${STALL_LIMIT:-2}"
 MODEL="${MODEL:-sonnet}"          # sonnet for speed; set MODEL=opus for hard work
-PROMPT_FILE="PROMPT_$MODE.md"
+PROMPT_FILE="loop/PROMPT_$MODE.md"
 
 case "$MAX_ITERS" in
   *[!0-9]*|'') echo "ralph: MAX_ITERS must be a number, got '$MAX_ITERS'" >&2; exit 2 ;;

@@ -13,7 +13,7 @@ deterministically before every iteration and exits). `v:human` cards left over i
 the expected finish state, not a failure.
 
 Classification lives on GitHub labels; commits close issues via `Closes #N`.
-Regenerate the GH block below: `bash loop.sh plan` (see PROMPT_plan.md).
+Regenerate the GH block below: `bash loop.sh plan` (see loop/PROMPT_plan.md).
 
 ## Loop infrastructure (local — not GitHub issues)
 
