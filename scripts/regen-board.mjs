@@ -20,11 +20,18 @@ const epicOf = (labels) => [...labels].find((n) => n.startsWith('epic:'))?.slice
 const sevOf = (labels) => [...labels].find((n) => n.startsWith('severity:'))?.slice(9)
 const verifyOf = (labels) => [...labels].find((n) => n.startsWith('verify:'))?.slice(7)
 
-// A section header (epic parent) is the issue whose title is "<Letter> — ...": no card
-// code, no severity. Everything else with an epic label is a card in that section.
-const parentLetter = (title) => title.match(/^([A-Z]) — /)?.[1]
-const cardCode = (title) => title.match(/^([A-Z]\d+) —\s+/)?.[1]
-const stripCode = (title) => title.replace(/^[A-Z]\d+ —\s+/, '')
+// The "<Letter> — desc" / "<Letter><n> — desc" title convention, parsed once:
+//   "A — Window & overlay state" -> { letter: 'A', code: null, desc: 'Window …' }  (section header)
+//   "A1 — overlay grows"         -> { letter: 'A', code: 'A1', desc: 'overlay grows' }  (card)
+//   "L1 verify hook" (no em dash)-> { letter: null, code: null, desc: 'L1 verify hook' }
+// A header is a title with a letter and no code; a card has a code (or none, for
+// titles that don't follow the convention).
+function parseTitle(title) {
+  const m = title.match(/^([A-Z])(\d+)? —\s+(.*)$/s)
+  if (!m) return { letter: null, code: null, desc: title }
+  const [, letter, digits, desc] = m
+  return { letter, code: digits ? letter + digits : null, desc }
+}
 
 export function parseMarkers(content) {
   const markers = new Map()
@@ -34,8 +41,7 @@ export function parseMarkers(content) {
 
 function cardLine(issue, marker) {
   const labels = labelSet(issue)
-  const code = cardCode(issue.title)
-  const desc = code ? stripCode(issue.title) : issue.title
+  const { code, desc } = parseTitle(issue.title)
   const sev = sevOf(labels)
   const verify = verifyOf(labels) === 'auto' ? 'v:auto' : 'v:human'
   const head = code ? `#${issue.number}  ${code}  ${desc}` : `#${issue.number}  ${desc}`
@@ -47,14 +53,16 @@ export function renderGhBlock(issues, prevContent) {
   const mark = (n) => markers.get(n) || ' '
 
   const parents = new Map() // letter -> {number, title}
+  const parentNums = new Set()
   for (const it of issues) {
-    const letter = parentLetter(it.title)
-    if (letter && labelSet(it).has(`epic:${letter}`) && !sevOf(labelSet(it))) {
-      parents.set(letter, { number: it.number, title: it.title.replace(/^[A-Z] — /, '') })
+    const { letter, code, desc } = parseTitle(it.title)
+    if (letter && !code && labelSet(it).has(`epic:${letter}`) && !sevOf(labelSet(it))) {
+      parents.set(letter, { number: it.number, title: desc })
+      parentNums.add(it.number)
     }
   }
 
-  const cards = issues.filter((it) => !parents.has(parentLetter(it.title) || ''))
+  const cards = issues.filter((it) => !parentNums.has(it.number))
   const gaps = cards.filter((it) => !verifyOf(labelSet(it))) // classification gaps
   const gapNums = new Set(gaps.map((it) => it.number))
 
