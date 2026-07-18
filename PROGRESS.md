@@ -14,3 +14,4 @@ Format: `- [UTC] iter N/M → <short-sha>  cost=$X duration=Yms`
 - [2026-07-18T19:22:59Z] iter 3/10 → 7d4c539  cost=$1.6366494999999996 duration=350934ms
 - learning: bare `node --test` globs recursively into gitignored `.claude/worktrees/`, running a sibling branch's stale tests and reddening verify for reasons unrelated to your card. Scoped the test script to `test/` (fixed in package.json). If verify fails on tests you never touched, check for a polluting worktree first.
 - [2026-07-18T19:37:29Z] iter 4/10 → cae04dd  cost=$2.7723535000000004 duration=865090ms
+- The per-issue driver can dispatch a card whose "Blocked by" dependency is only merged on another open loop PR (not main) — check the issue body's Blocked-by against merged state before building (#57 vs PR #86).
