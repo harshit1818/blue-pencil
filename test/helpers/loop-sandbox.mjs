@@ -2,9 +2,10 @@
 // so the harness's control flow (exit codes, stall/dirty/branch guards, timeout,
 // retry, telemetry, lock) is testable offline. No network, no real agent.
 import { execFileSync, spawnSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, chmodSync, cpSync, mkdirSync, readFileSync, existsSync } from 'node:fs'
+import { mkdtempSync, writeFileSync, cpSync, mkdirSync, readFileSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { git, mkTempGitRepo, writeExecutable, makeBin } from './git-sandbox.mjs'
 
 const ROOT = process.cwd()
 
@@ -15,11 +16,9 @@ export const DEFAULT_ISSUES = [
   { number: 101, title: 'A2 — a human card', labels: [{ name: 'epic:A' }, { name: 'severity:low' }, { name: 'verify:human' }] },
 ]
 
-const git = (dir, ...args) => execFileSync('git', args, { cwd: dir, stdio: 'ignore' })
-
 // action: one of noop | commit | done | branch | sleep | failN (e.g. fail1) | cost
 function writeClaudeStub(bin) {
-  writeFileSync(
+  writeExecutable(
     join(bin, 'claude'),
     `#!/usr/bin/env bash
 cat >/dev/null   # consume the piped prompt
@@ -39,23 +38,17 @@ case "$action" in
 esac
 `,
   )
-  chmodSync(join(bin, 'claude'), 0o755)
 }
 
 function writeGhStub(bin, jsonPath) {
-  writeFileSync(join(bin, 'gh'), `#!/usr/bin/env bash\ncat ${jsonPath}\n`)
-  chmodSync(join(bin, 'gh'), 0o755)
+  writeExecutable(join(bin, 'gh'), `#!/usr/bin/env bash\ncat ${jsonPath}\n`)
 }
 
 export function setupSandbox({ issues = DEFAULT_ISSUES, withOrigin = true } = {}) {
-  const dir = mkdtempSync(join(tmpdir(), 'loop-'))
-  git(dir, 'init', '-q')
-  git(dir, 'config', 'user.email', 't@t')
-  git(dir, 'config', 'user.name', 't')
+  const dir = mkTempGitRepo('loop-', { withUser: true })
   git(dir, 'checkout', '-q', '-b', 'work')
 
-  const bin = join(dir, 'bin')
-  mkdirSync(bin)
+  const bin = makeBin(dir)
   const jsonPath = join(dir, 'issues.json')
   writeFileSync(jsonPath, JSON.stringify(issues))
   writeClaudeStub(bin)
