@@ -90,6 +90,9 @@ for n in $(seq 1 "$MAX_ISSUES"); do
 
   git fetch -q origin "$BASE"
   git checkout -q -B "$branch" "origin/$BASE"
+  # Re-picking an issue whose PR was CLOSED (open PRs are skip-listed above) leaves a
+  # stale remote branch the fresh run can't fast-forward — clear it before building.
+  git push -q origin --delete "$branch" 2>/dev/null || true
 
   rm -f .loop/review.json   # a stale verdict must never gate this issue
   rc=0
