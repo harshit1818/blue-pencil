@@ -7,7 +7,8 @@ import { validBounds } from './window-bounds.js'
 import { installNavigationGuards } from './navigation-guard.js'
 import { guardSensitiveIpc } from './ipc-guard.js'
 import { listProviders, effectiveSettings, isValidProvider } from './providers.js'
-import { setProviderId, setModelId } from './settings.js'
+import { setProviderId, setModelId, getDenylist, setDenylist } from './settings.js'
+import { DEFAULT_DENYLIST } from './field-qualify.js'
 import { hasApiKey, setApiKey, seedFromEnv } from './keychain.js'
 import { registerHotkey, unregisterHotkey } from './hotkey.js'
 import {
@@ -189,6 +190,17 @@ app.whenReady().then(async () => {
       broadcastSettings()
     }
     return effectiveSettings()
+  })
+
+  // Icon denylist (F8). Only the USER array is editable; DEFAULT_DENYLIST is the
+  // R3 built-in floor, surfaced read-only so users see what's already blocked.
+  // No cross-window broadcast needed — only the main window edits this, and the
+  // ghost-icon follower reads the live settings cache on the next focus event.
+  const denylistView = () => ({ user: getDenylist(), defaults: DEFAULT_DENYLIST })
+  ipcMain.handle('settings:getDenylist', () => denylistView())
+  ipcMain.handle('settings:setDenylist', (_event, list) => {
+    setDenylist(Array.isArray(list) ? list : [])
+    return denylistView()
   })
 
   // Hotkey overlay channels.

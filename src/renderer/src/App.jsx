@@ -40,6 +40,9 @@ export default function App() {
   const [hasKey, setHasKey] = useState(true)
   const [showKeys, setShowKeys] = useState(false)
   const [keyDraft, setKeyDraft] = useState('')
+  const [denyUser, setDenyUser] = useState([])
+  const [denyDefaults, setDenyDefaults] = useState([])
+  const [denyDraft, setDenyDraft] = useState('')
   const wrapRef = useRef(null)
   const runGen = useRef(0)
 
@@ -90,6 +93,30 @@ export default function App() {
       if (unsub) unsub()
     }
   }, [])
+
+  // Icon denylist (F8). Main normalizes and returns the authoritative view, so
+  // the local list mirrors storage without re-implementing trim/dedup here.
+  const applyDeny = (d) => {
+    if (!d) return
+    setDenyUser(d.user || [])
+    setDenyDefaults(d.defaults || [])
+  }
+  useEffect(() => {
+    let live = true
+    window.api?.getDenylist?.().then((d) => live && applyDeny(d)).catch(() => {})
+    return () => {
+      live = false
+    }
+  }, [])
+
+  const addDeny = async () => {
+    const v = denyDraft.trim()
+    if (!v) return
+    applyDeny(await window.api?.setDenylist?.([...denyUser, v]))
+    setDenyDraft('')
+  }
+  const removeDeny = async (id) =>
+    applyDeny(await window.api?.setDenylist?.(denyUser.filter((x) => x !== id)))
 
   // On provider change: re-check its key, clear transient UI. Provider comes
   // from outside React (main-process broadcast); resetting on change is the point.
@@ -241,6 +268,28 @@ export default function App() {
     minWidth: 0
   }
 
+  const chip = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 4,
+    font: `400 11px ${font.mono}`,
+    padding: '3px 4px 3px 8px',
+    borderRadius: radius.sm,
+    border: `1px solid ${C.line}`,
+    background: C.panel,
+    color: C.ink
+  }
+  const chipDefault = { ...chip, padding: '3px 8px', color: C.muted, borderStyle: 'dashed' }
+  const chipX = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    border: 'none',
+    background: 'transparent',
+    color: C.muted,
+    cursor: 'pointer',
+    padding: 2
+  }
+
   return (
     <div
       style={{
@@ -367,6 +416,52 @@ export default function App() {
                   </span>
                 )}
               </div>
+
+              {/* Icon denylist (F8) — only shown when settings are explicitly open, not
+                  on the no-key auto-prompt. Defaults are the R3 floor: visible, read-only. */}
+              {showKeys && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: space.sm }}>
+                  <label htmlFor="deny-add" style={sectionLabel}>
+                    Icon denylist (bundle ids)
+                  </label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: space.sm }}>
+                    <input
+                      id="deny-add"
+                      value={denyDraft}
+                      onChange={(e) => setDenyDraft(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && addDeny()}
+                      placeholder="com.example.app"
+                      aria-label="Add bundle id to icon denylist"
+                      style={fieldStyle}
+                    />
+                    <button style={pill(false, true)} onClick={addDeny} disabled={!denyDraft.trim()}>
+                      Add
+                    </button>
+                  </div>
+                  {(denyUser.length > 0 || denyDefaults.length > 0) && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {denyUser.map((id) => (
+                        <span key={id} style={chip}>
+                          {id}
+                          <button
+                            className="act"
+                            aria-label={`Remove ${id} from denylist`}
+                            onClick={() => removeDeny(id)}
+                            style={chipX}
+                          >
+                            <X size={11} />
+                          </button>
+                        </span>
+                      ))}
+                      {denyDefaults.map((id) => (
+                        <span key={id} style={chipDefault} title="Built-in default — always blocked">
+                          {id}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

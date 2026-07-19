@@ -71,7 +71,7 @@ Regenerate the GH block below: `bash loop.sh plan` (see PROMPT_plan.md).
 - [ ] #88  F7b — Wire the whole-field flow into main + panel (readValue request, review UI, verified ⌘A⌘V apply)  · sev:high · v:human
 - [ ] #58  F6  Field-anchor the hotkey overlay (closes #1's core complaint)  · sev:medium · v:auto
 - [ ] #85  F4c — Eyes-on: ghost icon live behavior in the target apps  · sev:medium · v:human
-- [ ] #60  F8  Denylist editing UI in settings  · sev:low · v:auto
+- [x] #60  F8  Denylist editing UI in settings  · sev:low · v:auto
 
 ## Ungrouped
 

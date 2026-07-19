@@ -10,6 +10,8 @@ const api = {
   getSettings: () => ipcRenderer.invoke('settings:get'),
   setProvider: (id) => ipcRenderer.invoke('settings:setProvider', id),
   setModel: (id, model) => ipcRenderer.invoke('settings:setModel', id, model),
+  getDenylist: () => ipcRenderer.invoke('settings:getDenylist'),
+  setDenylist: (list) => ipcRenderer.invoke('settings:setDenylist', list),
   onSettingsChanged: (cb) => {
     const h = (_e, s) => cb(s)
     ipcRenderer.on('settings:changed', h)

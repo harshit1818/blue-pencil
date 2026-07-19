@@ -9,6 +9,9 @@ export interface Api {
   getSettings(): Promise<any>
   setProvider(id: string): Promise<any>
   setModel(id: string, model: string): Promise<any>
+  getDenylist(): Promise<{ user: string[]; defaults: string[] }>
+  setDenylist(list: string[]): Promise<{ user: string[]; defaults: string[] }>
+
   onSettingsChanged(cb: (settings: any) => void): () => void
   onPopoverShow(cb: (payload: any) => void): () => void
   popoverReady(): void
