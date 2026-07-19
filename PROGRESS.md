@@ -22,3 +22,4 @@ Format: `- [UTC] iter N/M → <short-sha>  cost=$X duration=Yms`
 - [2026-07-18T21:42:06Z] iter 1/10 → 43c40fe  cost=$6.782419000000001 duration=1020502ms
 - learning: the per-issue driver (loop-issues.sh) exports its control vars (ONLY, BASE, …) into the agent env, and the loop sandbox tests inherited process.env — so EVERY driver iteration ran verify with 17 loop tests red (sandbox loop.sh targeted the outer ONLY issue, absent from the sandbox board). Fixed by stripping loop control vars in test/helpers/loop-sandbox.mjs; if loop.sh grows a new env knob, add it to LOOP_VARS there.
 - [2026-07-18T22:24:59Z] iter 1/10 → 1399735  cost=$4.6109729999999995 duration=657059ms
+- #58: overlay field-anchor geometry (overlayRectForField) + setOverlayFieldFrame seam shipped, but nothing calls the setter yet — #78 (F2b helper→main wiring) is the producer, so the overlay stays cursor-anchored until #78 lands. Not a stub: same pure-module-ahead-of-wiring pattern as icon-anchor.js.

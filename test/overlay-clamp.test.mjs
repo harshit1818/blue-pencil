@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { clampOverlay } from '../src/main/overlay-clamp.js'
+import { clampOverlay, overlayRectForField } from '../src/main/overlay-clamp.js'
 
 const laptop = [{ workArea: { x: 0, y: 25, width: 1512, height: 920 } }]
 const dual = [
@@ -52,4 +52,40 @@ test('anchor on the secondary display clamps against that display, not primary',
 test('anchor outside every work area falls back to the nearest display', () => {
   const r = clampOverlay({ x: 5000, y: 5000 }, size, dual)
   assert.ok(r.x + r.width <= 1512 && r.y + r.height <= 945)
+})
+
+// overlayRectForField — field-anchored placement (#58/#1)
+
+test('field with room opens just below its bottom edge, left-aligned', () => {
+  const field = { x: 200, y: 200, width: 300, height: 40 }
+  const r = overlayRectForField(field, size, laptop)
+  assert.equal(r.x, 200, 'left-aligned to the field, not the cursor')
+  assert.equal(r.y, 200 + 40 + 12, 'below the field bottom edge with the gap')
+})
+
+test('field near the bottom flips above its top edge, never covering it', () => {
+  const field = { x: 200, y: 880, width: 300, height: 40 }
+  const r = overlayRectForField(field, size, laptop)
+  assert.ok(r.y + r.height <= field.y, `overlay bottom ${r.y + r.height} covers field top ${field.y}`)
+  assert.ok(r.y >= 25 && r.y + r.height <= 945)
+})
+
+test('field near the right edge clamps x inside the work area', () => {
+  const field = { x: 1400, y: 200, width: 300, height: 40 }
+  const r = overlayRectForField(field, size, laptop)
+  assert.ok(r.x + r.width <= 1512, `${r.x}+${r.width} past right`)
+  assert.ok(r.x >= 0)
+})
+
+test('field on the secondary display clamps against that display', () => {
+  const field = { x: -1800, y: -200, width: 300, height: 40 }
+  const r = overlayRectForField(field, size, dual)
+  assert.ok(r.x >= -1920 && r.x + r.width <= 0, `x ${r.x} not on secondary`)
+  assert.ok(r.y >= -300 && r.y + r.height <= 780)
+})
+
+test('absent or invalid field returns null so callers fall back to the cursor (R11)', () => {
+  assert.equal(overlayRectForField(null, size, laptop), null)
+  assert.equal(overlayRectForField({ x: 200, y: 200, width: 0, height: 40 }, size, laptop), null)
+  assert.equal(overlayRectForField({ x: 200, y: NaN, width: 300, height: 40 }, size, laptop), null)
 })

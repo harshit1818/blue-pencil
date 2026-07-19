@@ -1,6 +1,7 @@
 import { BrowserWindow, screen } from 'electron'
 import { join } from 'path'
 import { restoreClipboardIfPending } from './automation.js'
+import { overlayRectForField } from './overlay-clamp.js'
 import { log } from './log.js'
 
 // A single reused, frameless, transparent, always-on-top popover window shown
@@ -13,6 +14,7 @@ let blurDismissSuppressed = false // held up on purpose during the accessibility
 let pendingText = null // text captured for a summon not yet delivered to the renderer
 let pendingAccessibility = false // whether that summon's grab was the auto (v1) path
 let pendingMarkdown = false // whether the captured text is Markdown (rich grab — Case 1)
+let currentFieldFrame = null // latest focused-field bounds from the F2 helper stream (#58)
 
 function create() {
   rendererReady = false
@@ -83,6 +85,28 @@ function positionAtCursor() {
   win.setPosition(Math.round(x), Math.round(y))
 }
 
+// Anchor to the focused field when the F2 helper has current bounds for it,
+// otherwise fall back to the cursor path unchanged (R11). Closes #1's core
+// complaint that the overlay is cursor-anchored and clips near screen edges.
+function positionOverlay() {
+  const [w, h] = win.getSize()
+  const rect =
+    currentFieldFrame &&
+    overlayRectForField(currentFieldFrame, { width: w, height: h }, screen.getAllDisplays())
+  if (rect) {
+    log(`positionOverlay field=(${currentFieldFrame.x},${currentFieldFrame.y},${currentFieldFrame.width}x${currentFieldFrame.height}) -> (${rect.x},${rect.y})`)
+    win.setPosition(rect.x, rect.y)
+    return
+  }
+  positionAtCursor()
+}
+
+// The F2 helper wiring (#78) feeds the currently-focused field's bounds here on
+// focus/bounds and clears it (null) on blur or when the helper is gone.
+export function setOverlayFieldFrame(frame) {
+  currentFieldFrame = frame || null
+}
+
 // Deliver the captured text only once the renderer is listening. This avoids the
 // first-summon race: 'popover:show' fired on did-finish-load could land before
 // the renderer's onPopoverShow listener was attached, dropping the first capture.
@@ -92,7 +116,7 @@ function flush() {
   const accessibility = pendingAccessibility
   const markdown = pendingMarkdown
   pendingText = null
-  positionAtCursor()
+  positionOverlay()
   win.webContents.send('popover:show', { text, accessibility, markdown })
   // showInactive() shows without activating the app, so summoning the overlay
   // doesn't pull the active Space to another display (the "opens on the other
