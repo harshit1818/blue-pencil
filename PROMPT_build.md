@@ -19,12 +19,22 @@ on disk: read it, don't assume it.
    without a test that would fail before your change is not done — that is the
    whole point of the tag.
 6. Run `npm run verify` (typecheck + lint + secret-scan + test + build). It MUST
-   pass. If you cannot make it pass, revert your CODE changes, then flip the card
-   `[ ]` → `[!]` with a one-line blocker note and commit ONLY that board edit
-   (`docs(board): block #N — <reason>`). Committing the block (not leaving it in the
-   working tree) keeps the blocker in git, leaves a clean tree for the next
-   iteration, and moves HEAD so the loop advances to the next card instead of
-   counting a stall. Never commit broken code.
+   pass. If you CANNOT make it pass, you are about to block — first ask the human,
+   ONCE, since they may redirect you from their phone. Ask ONLY here, at a real
+   block (never for routine choices you can make yourself):
+   ```
+   ans="$(scripts/ask-human.sh "Blocked on #N: <one-line reason>." "<approach A you'd try next>" "<approach B>" "block it for now")"
+   ```
+   It posts to Slack and waits (up to ~15m) for a reply.
+   - If `$ans` is a direction (non-empty and not "block it for now"), follow it and
+     re-run verify. If verify now passes, proceed to step 7 as normal.
+   - If `$ans` is "block it for now", or the command exits non-zero (no answer, timed
+     out, or Slack not configured), then BLOCK: revert your CODE changes, flip the
+     card `[ ]` → `[!]` with a one-line blocker note, and commit ONLY that board edit
+     (`docs(board): block #N — <reason>`). Committing the block (not leaving it in the
+     working tree) keeps the blocker in git, leaves a clean tree for the next
+     iteration, and moves HEAD so the loop advances instead of counting a stall.
+   Never commit broken code, and never loop the ask — one question, then act.
 7. Update the board: flip the card `[ ]` → `[x]`. Add any follow-ups/bugs you found
    as new cards with the right `v:auto`/`v:human` tag.
 8. Commit. One card = one commit. Conventional Commits style. Put `Closes #N` in

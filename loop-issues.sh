@@ -35,6 +35,8 @@ esac
 
 mkdir -p .loop
 log() { echo "[$(date -u +%FT%TZ)] $*" | tee -a .loop/issues.log; }
+# Phone ping for merge outcomes and stops (see loop.sh notify). Best-effort no-op.
+notify() { scripts/notify.sh "🔀 [issues] $*" >/dev/null 2>&1 || true; }
 
 # Open loop/issue-N PR head branches, one per line. gh's --jq is ignored by the
 # test stub, so parse the raw JSON in node (same reason the skip list does below).
@@ -96,6 +98,7 @@ for n in $(seq 1 "$MAX_ISSUES"); do
   ONLY="$issue" BASE="$BASE" bash loop.sh "$ITERS_PER_ISSUE" || rc=$?
   if [ "$rc" -ne 0 ]; then
     log "=== issues: loop.sh exited rc=$rc on #$issue — stopping for a human. ==="
+    notify "stopped on #$issue — loop.sh exited rc=$rc. Needs you."
     exit "$EXIT_INNER"
   fi
   skip="${skip:+$skip,}$issue"
@@ -107,6 +110,7 @@ for n in $(seq 1 "$MAX_ISSUES"); do
            && gh pr merge "$branch" --merge --delete-branch --subject "merge: $branch (Closes #$issue)"; } \
          2>&1 | tee -a .loop/issues.log; then
       log "=== issues: merge failed for #$issue — stopping for a human. ==="
+      notify "merge FAILED for #$issue — merge state needs a human."
       exit "$EXIT_MERGE"
     fi
     merged=$((merged + 1))
@@ -114,6 +118,7 @@ for n in $(seq 1 "$MAX_ISSUES"); do
     resync_parked
   else
     log "=== issues: not merging #$issue (gate failed, no PR, or AUTO_MERGE=0) — PR left for a human. ==="
+    notify "#$issue not merged (gate failed / AUTO_MERGE=0) — PR left for you: $(gh pr view "$branch" --json url -q .url 2>/dev/null || echo "$branch")"
   fi
 
   # gh --delete-branch may or may not have moved the checkout; make the end state

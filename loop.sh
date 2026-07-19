@@ -84,6 +84,11 @@ fi
 # Timestamped log line, mirrored to console and .loop/loop.log (created below).
 log() { echo "[$(date -u +%FT%TZ)] $*" | tee -a .loop/loop.log; }
 
+# Push a phone notification for the moments that actually need eyes — blocks and
+# stops, NOT every log line. Best-effort and a no-op unless SLACK_BOT_TOKEN/
+# SLACK_CHANNEL are set, so it never affects the run's outcome.
+notify() { scripts/notify.sh "🤖 [$BRANCH] $*" >/dev/null 2>&1 || true; }
+
 # Open a DRAFT PR for this run's branch if one doesn't already exist. Draft +
 # never-merge is the whole point: the loop surfaces work for review, a human decides.
 ensure_pr() {
@@ -101,6 +106,7 @@ ${cards:-（none detected）}
 
 \`verify\` (typecheck/lint/secret-scan/test/build) passed for each commit. UI / \`v:human\` behaviour is NOT verified here." \
     2>&1 | tee -a .loop/loop.log || log "=== ralph: gh pr create failed (continuing) ==="
+  notify "draft PR ready for review: $(gh pr view "$BRANCH" --json url -q .url 2>/dev/null || echo "$BRANCH")"
 }
 
 # Run one independent review (a FRESH agent — no session continuity with the author,
@@ -137,6 +143,7 @@ review_and_remediate() {
     [ "${objn:-0}" -eq 0 ] && break
     if [ "$round" -ge "$REMEDIATION_ROUNDS" ]; then
       log "=== ralph: remediation cap ($REMEDIATION_ROUNDS) reached — $objn objective finding(s) left for a human ==="
+      notify "$objn review finding(s) couldn't be auto-fixed — need you: $(gh pr view "$BRANCH" --json url -q .url 2>/dev/null || echo "$BRANCH")"
       break
     fi
     round=$((round + 1))
@@ -166,6 +173,7 @@ review_and_remediate() {
   node scripts/review-triage.mjs product "$review" > .loop/product.md 2>/dev/null || true
   if [ -s .loop/product.md ]; then
     gh pr comment "$BRANCH" --body-file .loop/product.md 2>&1 | tee -a .loop/loop.log || log "=== ralph: product-checklist comment failed ==="
+    notify "product/scope findings need a decision: $(gh pr view "$BRANCH" --json url -q .url 2>/dev/null || echo "$BRANCH")"
   fi
 }
 
@@ -175,6 +183,7 @@ finish() {
     ensure_pr
     review_and_remediate
   fi
+  [ "$1" -ne 0 ] && notify "run stopped (exit $1)${ONLY:+ for #$ONLY}"
   exit "$1"
 }
 
@@ -240,6 +249,7 @@ pushed_any=0
 if [ -n "$(git status --porcelain)" ]; then
   log "=== ralph: working tree is dirty — inspect and commit/reset before looping. ==="
   git status --short | tee -a .loop/loop.log
+  notify "stopped: working tree dirty — needs a laptop to inspect/reset."
   exit "$EXIT_DIRTY"
 fi
 
@@ -258,6 +268,7 @@ for i in $(seq 1 "$MAX_ITERS"); do
   # let a human inspect/reset the half-done card.
   if grep -qE "$INPROGRESS_RE" IMPLEMENTATION_PLAN.md; then
     log "=== ralph: in-progress [~] v:auto card found — half-done work, inspect and reset. ==="
+    notify "stopped: a half-done [~] card is on the board — needs inspection."
     exit "$EXIT_INPROGRESS"
   fi
 
@@ -310,6 +321,7 @@ for i in $(seq 1 "$MAX_ITERS"); do
     if is_usage_limited "$iter_out"; then
       if [ "$limit_waited" -ge "$LIMIT_WAIT_MAX" ]; then
         log "=== ralph: usage-limited for ${limit_waited}s (cap ${LIMIT_WAIT_MAX}s) — giving up, likely the weekly cap. ==="
+        notify "stopped: usage-limited past ${LIMIT_WAIT_MAX}s — likely the weekly cap."
         exit "$EXIT_LIMIT"
       fi
       log "=== ralph: usage limit hit (429, free probe) — sleeping ${LIMIT_POLL}s, waited ${limit_waited}/${LIMIT_WAIT_MAX}s ==="
@@ -324,6 +336,7 @@ for i in $(seq 1 "$MAX_ITERS"); do
   done
   if [ "$rc" -ne 0 ]; then
     log "=== ralph: iteration $i failed after $RETRIES retries (rc=$rc; 124=timeout) — stopping. ==="
+    notify "stopped: iteration $i failed after $RETRIES retries (rc=$rc)."
     exit "$EXIT_ITER_FAILED"
   fi
 
@@ -359,6 +372,13 @@ for i in $(seq 1 "$MAX_ITERS"); do
     fi
   else
     stall=0
+    # The one thing worth a phone ping mid-run: the agent BLOCKED a card ([ ] -> [!]),
+    # which only happens when it couldn't make verify pass (and, if Slack is wired,
+    # the human it asked didn't redirect it — see PROMPT_build.md step 6). Objective
+    # event on the committed board, not an agent judgment call — no "when do I ask?"
+    # fuzz. Anything the agent can finish is finished silently.
+    newblock="$(git diff "$before..$after" -- IMPLEMENTATION_PLAN.md 2>/dev/null | grep -E '^\+- \[!\]' | sed 's/^+//' || true)"
+    [ -n "$newblock" ] && notify "🚧 card blocked — needs you:"$'\n'"$newblock"
     # Durable per-iteration record that survives fresh contexts — committed, not just
     # logged (loop.log/.loop are transient). Learnings the agent adds ride in its card
     # commit; this line is the machine telemetry. Committed with -n: it is loop
@@ -375,6 +395,7 @@ for i in $(seq 1 "$MAX_ITERS"); do
       log "=== ralph: push failed ($pushfail/$PUSH_FAIL_LIMIT) ==="
       if [ "$pushfail" -ge "$PUSH_FAIL_LIMIT" ]; then
         log "=== ralph: $PUSH_FAIL_LIMIT consecutive push failures — remote is unreachable, stopping. ==="
+        notify "stopped: $PUSH_FAIL_LIMIT consecutive push failures — remote unreachable."
         exit "$EXIT_PUSH"
       fi
     fi
