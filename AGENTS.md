@@ -38,6 +38,14 @@ assertion that can't fail on bad output is not enough (see the v:auto policy bel
 - Record durable operational learnings here; never progress notes (those go in
   IMPLEMENTATION_PLAN.md).
 
+## Loop harness
+
+- Adding a loop-control env var to `loop.sh` / `loop-issues.sh` (e.g. `ONLY`, `MODEL`,
+  `BASE`)? Also add it to `LOOP_VARS` in `test/helpers/loop-sandbox.mjs` — the sandbox
+  must strip it, or the harness tests inherit the outer loop's env and go red *only*
+  under a targeted (`ONLY=N`) run, passing in a clean shell. (Re-learned 3× on
+  2026-07-18 before being captured here.)
+
 ## v:auto policy
 
 `verify:auto` means **a test can fail when the behaviour is wrong** — not merely that

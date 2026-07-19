@@ -112,3 +112,9 @@ The PR body must account for every removed line **by bucket and count** — noth
   Revisit once a run actually has >10 PRs in range.
 - Open question (2026-07-19): should promoted rules also flow to `.claude/` agent config?
   Deferred until one concretely needs it.
+- First run (2026-07-19): 1 pattern at the bar (env-leakage 3×) → `AGENTS.md` Loop-harness
+  rule. 2 sub-bar patterns compressed (blocked-by 2×, worktree-pollution 1×). Compacted
+  PROGRESS.md 24→16 lines (deleted 3 promoted learnings + 4 merged-telemetry lines; merged
+  the 2 blocked-by learnings into 1 line). Litmus (env-leakage detection + fold) passed.
+  Note: interactive runs land on a `worktree-loop+retro-*` branch (EnterWorktree), not the
+  `loop/retro-*` the procedure names — cosmetic; revisit if a scheduler ever needs the exact name.
