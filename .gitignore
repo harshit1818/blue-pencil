@@ -40,3 +40,6 @@ yarn-error.log*
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# --- Compiled AX helper (npm run helper:build) ---
+helper/ax-probe

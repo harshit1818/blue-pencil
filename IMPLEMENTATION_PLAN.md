@@ -66,7 +66,7 @@ Regenerate the GH block below: `bash loop.sh plan` (see PROMPT_plan.md).
 
 ## F — Persistent field-anchored icon (Phase 3) (#52)
 
-- [ ] #78  F2b — Wire the F2 lifecycle/parser into Electron main (spawn, R12/R13)  · sev:high · v:auto
+- [x] #78  F2b — Wire the F2 lifecycle/parser into Electron main (spawn, R12/R13)  · sev:high · v:auto
 - [ ] #83  F1b — Run ax-probe against the five target apps; record the truth-table go/no-go  · sev:high · v:human
 - [ ] #88  F7b — Wire the whole-field flow into main + panel (readValue request, review UI, verified ⌘A⌘V apply)  · sev:high · v:human
 - [ ] #58  F6  Field-anchor the hotkey overlay (closes #1's core complaint)  · sev:medium · v:auto

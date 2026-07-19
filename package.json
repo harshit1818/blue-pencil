@@ -14,6 +14,7 @@
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "rebuild": "electron-rebuild -f -w keytar",
+    "helper:build": "xcrun swiftc -O helper/ax-probe.swift -o helper/ax-probe",
     "prepare": "node scripts/setup-hooks.mjs",
     "postinstall": "electron-builder install-app-deps",
     "dist": "electron-vite build && electron-builder --mac"

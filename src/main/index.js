@@ -1,6 +1,7 @@
 import { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, shell, nativeTheme, clipboard, screen } from 'electron'
 import { join } from 'path'
 import { readFileSync, writeFileSync } from 'fs'
+import { spawn as spawnHelper } from 'child_process'
 import { color } from '@tokens'
 import { transform } from './transform.js'
 import { validBounds } from './window-bounds.js'
@@ -20,15 +21,32 @@ import {
 import {
   pasteBack,
   writeResultToClipboard,
+  isAccessibilityGranted,
   requestAccessibility,
   openAccessibilitySettings,
   relaunchApp
 } from './automation.js'
+import { createHelperSupervisor } from './helper-supervisor.js'
+import { onHelperEvent, destroyGhostIcon } from './ghost-icon.js'
 
 const HOTKEY_LABEL = "⌘⇧'"
 
 let mainWindow = null
 let tray = null
+
+// F2b (#78): the AX helper feeds the ghost icon through the supervisor seam.
+// stderr is discarded and start() is a no-op without Accessibility permission
+// (isAccessibilityGranted never prompts) — R12/R13. A missing binary (not yet
+// compiled via `npm run helper:build`) just backs off and gives up silently.
+const helperBin = () =>
+  app.isPackaged
+    ? join(process.resourcesPath, 'ax-probe')
+    : join(app.getAppPath(), 'helper', 'ax-probe')
+const helper = createHelperSupervisor({
+  spawn: () => spawnHelper(helperBin(), [], { stdio: ['pipe', 'pipe', 'ignore'] }),
+  isGranted: isAccessibilityGranted
+})
+helper.on(onHelperEvent)
 
 // Shared definition of "our own page" for the navigation guard (#37) and the
 // sensitive-IPC guard (#39).
@@ -221,6 +239,7 @@ app.whenReady().then(async () => {
   const hotkeyOk = registerHotkey()
   createTray(hotkeyOk)
   createWindow() // created hidden; summoned via the tray or by being needed
+  helper.start()
 
   nativeTheme.on('updated', () => mainWindow?.setBackgroundColor(paperFor()))
 
@@ -242,4 +261,8 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
 })
 
-app.on('will-quit', unregisterHotkey)
+app.on('will-quit', () => {
+  unregisterHotkey()
+  helper.stop()
+  destroyGhostIcon()
+})
