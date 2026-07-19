@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { setupSandbox } from './helpers/loop-sandbox.mjs'
 
 // Mirror of the EXIT_* table at the top of loop.sh — keep in sync (see the NOTE there).
-const EXIT = { OK: 0, STALL: 1, BADARGS: 2, BRANCH_MOVED: 3, DIRTY: 4, INPROGRESS: 5, MAXITERS: 6, PUSH: 7, ITER_FAILED: 8, LOCKED: 9 }
+const EXIT = { OK: 0, STALL: 1, BADARGS: 2, BRANCH_MOVED: 3, DIRTY: 4, INPROGRESS: 5, MAXITERS: 6, PUSH: 7, ITER_FAILED: 8, LOCKED: 9, LIMIT: 10 }
 
 test('ONLY targets one issue: its number is injected into the prompt', () => {
   const sb = setupSandbox()
@@ -219,4 +219,20 @@ test('consecutive push failures abort with the push code', () => {
   const r = sb.run(5, { CLAUDE_ACTION: 'commit', PUSH_FAIL_LIMIT: '2' })
   assert.equal(r.status, EXIT.PUSH)
   assert.match(r.log, /consecutive push failures/)
+})
+
+test('a 429 usage limit pauses and re-probes instead of burning retries', () => {
+  const sb = setupSandbox()
+  const r = sb.run(1, { CLAUDE_ACTION: 'limit1', LIMIT_POLL: '1' })
+  assert.match(r.log, /usage limit hit \(429/)
+  assert.ok(!/retry 1\/2/.test(r.log), '429 must not consume the retry budget')
+  assert.match(sb.gitLog(), /stub work after limit/)
+  assert.equal(r.status, EXIT.MAXITERS) // committed but card not flipped -> still open
+})
+
+test('LIMIT_WAIT_MAX bounds 429 waiting with a distinct exit code', () => {
+  const sb = setupSandbox()
+  const r = sb.run(1, { CLAUDE_ACTION: 'limit99', LIMIT_POLL: '1', LIMIT_WAIT_MAX: '2' })
+  assert.equal(r.status, EXIT.LIMIT)
+  assert.match(r.log, /giving up/)
 })
