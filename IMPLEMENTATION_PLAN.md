@@ -66,8 +66,7 @@ Regenerate the GH block below: `bash loop.sh plan` (see PROMPT_plan.md).
 
 ## F — Persistent field-anchored icon (Phase 3) (#52)
 
-- [x] #56  F4  Ghost icon: window follows the focused field  · sev:high · v:auto
-- [ ] #57  F5  Icon unfolds the action panel (selection path)  · sev:high · v:auto
+- [!] #57  F5  Icon unfolds the action panel (selection path)  · sev:high · v:auto
 - [ ] #78  F2b — Wire the F2 lifecycle/parser into Electron main (spawn, R12/R13)  · sev:high · v:auto
 - [ ] #83  F1b — Run ax-probe against the five target apps; record the truth-table go/no-go  · sev:high · v:human
 - [ ] #88  F7b — Wire the whole-field flow into main + panel (readValue request, review UI, verified ⌘A⌘V apply)  · sev:high · v:human
