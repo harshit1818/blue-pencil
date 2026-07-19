@@ -89,6 +89,7 @@ case "$1" in
       comment) : ;;
       ready)   : ;;
       merge)   git push -q origin "HEAD:\${BASE:-main}" ;;
+      list)    cat .loop/pr-list.json 2>/dev/null || echo "[]" ;;
       *) : ;;
     esac ;;
   *) : ;;
