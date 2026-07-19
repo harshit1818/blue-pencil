@@ -39,7 +39,22 @@ on disk: read it, don't assume it.
    as new cards with the right `v:auto`/`v:human` tag.
 8. Commit. One card = one commit. Conventional Commits style. Put `Closes #N` in
    the body so merging the branch auto-closes the GitHub issue. No `Co-Authored-By`.
-9. If you learned something durable this iteration (a wrong assumption you had to
+9. Write `.loop/pr-body.md` so the pull request reads as ordinary engineering work.
+   First line: a Conventional-Commits-style title for the CHANGE (e.g.
+   `feat(overlay): clamp geometry to the visible frame`) — describe the work, never the
+   loop. Then a blank line, then the body:
+   ```
+   ## What
+   <what changed, in prose>
+   ## Why
+   <the problem it solves — include `Closes #N`>
+   ## Testing
+   <the test that proves it, and that automated checks pass>
+   ```
+   Do NOT mention the loop, Ralph, iterations, or automation anywhere in this file.
+   Write it ONLY for a card you completed (step 7 flipped to `[x]`); a blocked `[!]`
+   card writes no PR body. `.loop/` is gitignored — this file is transient, never committed.
+10. If you learned something durable this iteration (a wrong assumption you had to
    correct, a command that needed fixing, a non-obvious gotcha), append ONE line to
    `PROGRESS.md` so the next fresh context inherits it. `loop.sh` records the
    telemetry line itself — you add only the learning. Durable *operational* rules
