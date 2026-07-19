@@ -101,3 +101,18 @@ test('issues with open loop/issue-N PRs are skipped at startup (resume safety)',
   assert.match(r.log, /queue clear after 0 issue/)
   assert.ok(!sb.exists('.loop/claude-stdin.log'), 'agent must not run for a parked issue')
 })
+
+test('a stale remote branch from a closed PR is cleared before re-delivery', () => {
+  const sb = setupSandbox()
+  // Simulate an old, closed-PR run: a divergent remote loop/issue-100 (no pr-list entry).
+  execFileSync('git', ['checkout', '-q', '-b', 'stale'], { cwd: sb.dir })
+  execFileSync('git', ['commit', '--allow-empty', '-q', '-m', 'stale old attempt'], { cwd: sb.dir })
+  execFileSync('git', ['push', '-q', 'origin', 'stale:refs/heads/loop/issue-100'], { cwd: sb.dir })
+  execFileSync('git', ['checkout', '-q', 'work'], { cwd: sb.dir })
+  execFileSync('git', ['branch', '-q', '-D', 'stale'], { cwd: sb.dir })
+
+  const r = runDriver(sb)
+  assert.equal(r.status, EXIT.OK)
+  assert.match(r.log, /1 merged/)
+  assert.ok(!originLog(sb).includes('stale old attempt'), 'the stale attempt must not survive')
+})

@@ -169,10 +169,22 @@ review_and_remediate() {
   fi
 }
 
+# The run's accumulated telemetry (.loop/telemetry.md) becomes one PR comment — the
+# durable record now that it is no longer committed to PROGRESS.md (conflict magnet).
+post_telemetry() {
+  [ -s .loop/telemetry.md ] || return 0
+  command -v gh >/dev/null 2>&1 || return 0
+  gh pr view "$BRANCH" >/dev/null 2>&1 || return 0
+  { echo '### 🤖 Iteration telemetry'; echo; cat .loop/telemetry.md; } > .loop/telemetry-comment.md
+  gh pr comment "$BRANCH" --body-file .loop/telemetry-comment.md 2>&1 | tee -a .loop/loop.log \
+    || log "=== ralph: telemetry comment failed (continuing) ==="
+}
+
 # Terminal path when the run produced work: surface it (draft PR + review), then exit.
 finish() {
   if [ "${pushed_any:-0}" = 1 ]; then
     ensure_pr
+    post_telemetry
     review_and_remediate
   fi
   exit "$1"
@@ -228,7 +240,7 @@ if ! mkdir .loop/lock 2>/dev/null; then
 fi
 trap 'rmdir .loop/lock 2>/dev/null || true' EXIT
 
-rm -f .loop/DONE
+rm -f .loop/DONE .loop/telemetry.md
 stall=0
 pushfail=0
 pushed_any=0
@@ -359,14 +371,13 @@ for i in $(seq 1 "$MAX_ITERS"); do
     fi
   else
     stall=0
-    # Durable per-iteration record that survives fresh contexts — committed, not just
-    # logged (loop.log/.loop are transient). Learnings the agent adds ride in its card
-    # commit; this line is the machine telemetry. Committed with -n: it is loop
-    # bookkeeping (docs-only), not agent work, so it skips the verify gate.
+    # Machine telemetry stays OUT of the branch: committing it to PROGRESS.md made
+    # every two loop branches conflict with each other by construction (that file plus
+    # the board were the entire conflict set of parked PRs #84/#86). It accumulates in
+    # .loop and lands on the PR as a comment in finish() — the PR is the run's durable
+    # record. Learnings the agent writes to PROGRESS.md still ride its card commits.
     printf -- '- [%s] iter %s/%s → %s  cost=$%s duration=%sms\n' \
-      "$(date -u +%FT%TZ)" "$i" "$MAX_ITERS" "$(git rev-parse --short HEAD)" "$cost" "$dur" >> PROGRESS.md
-    git add PROGRESS.md
-    git commit -n -q -m "chore(progress): iteration $i telemetry" || true
+      "$(date -u +%FT%TZ)" "$i" "$MAX_ITERS" "$(git rev-parse --short HEAD)" "$cost" "$dur" >> .loop/telemetry.md
     if git push origin "$BRANCH" 2>&1 | tee -a .loop/loop.log; then
       pushfail=0
       pushed_any=1
