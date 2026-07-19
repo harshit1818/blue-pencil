@@ -59,7 +59,18 @@ AUTO_REVIEW="${AUTO_REVIEW:-1}"      # post an independent review + triage on th
 REMEDIATION_ROUNDS="${REMEDIATION_ROUNDS:-2}"  # max auto-fix rounds for objective findings
 VERIFY_CMD="${VERIFY_CMD:-npm run verify}"     # gate a remediation fix must pass
 ONLY="${ONLY:-}"                     # optional: restrict the run to one issue number
-PROMPT_FILE="PROMPT_build.md"
+
+# Assemble a loop skill into one prompt: its SKILL.md followed by every references/*.md
+# (core plus detail). loop.sh pipes this to the headless agent — it does not depend on
+# runtime skill auto-loading, so the agent receives the same content it always has, just
+# sourced from .claude/skills/<name>/ instead of a monolithic PROMPT_*.md file.
+skill_prompt() {
+  local dir=".claude/skills/$1"
+  cat "$dir/SKILL.md"
+  for f in "$dir"/references/*.md; do
+    [ -f "$f" ] && { printf '\n\n'; cat "$f"; }
+  done
+}
 
 case "$MAX_ITERS" in
   *[!0-9]*|'') echo "ralph: MAX_ITERS must be a number, got '$MAX_ITERS'" >&2; exit "$EXIT_BADARGS" ;;
@@ -140,7 +151,7 @@ run_one_review() {
   commits="$(git log "origin/$BASE..HEAD" --pretty='- %s' 2>/dev/null || true)"
   [ "${#diff}" -gt 150000 ] && diff="${diff:0:150000}
 [... diff truncated at 150k chars for review ...]"
-  { cat PROMPT_review.md
+  { skill_prompt review-diff
     printf '\n\n=== COMMITS ===\n%s\n' "$commits"
     printf '\n=== DIFF (origin/%s...HEAD) ===\n%s\n' "$BASE" "$diff"
   } | claude -p --dangerously-skip-permissions --model "$MODEL" --output-format text > "$out" 2>>.loop/loop.log
@@ -154,7 +165,7 @@ review_and_remediate() {
   [ "$AUTO_REVIEW" = 1 ] || return 0
   command -v gh >/dev/null 2>&1 || return 0
   gh pr view "$BRANCH" >/dev/null 2>&1 || return 0   # only if a PR exists
-  [ -f PROMPT_review.md ] || return 0
+  [ -d .claude/skills/review-diff ] || return 0
   local review=".loop/review.json" round=0 objn
   while :; do
     log "=== ralph: independent review (round $round) ==="
@@ -330,7 +341,7 @@ for i in $(seq 1 "$MAX_ITERS"); do
   # (data, not shell args — a quoted issue number can't break parsing, cf. #748).
   iter_out=".loop/iter-$i.json"
   run_claude() {
-    { cat "$PROMPT_FILE"
+    { skill_prompt build-card
       if [ -n "$ONLY" ]; then
         printf '\n\n## This run\nWork ONLY on GitHub issue #%s this iteration; ignore every other card. If #%s is not an open `[ ]` `v:auto` card on the board, do nothing and stop.\n' "$ONLY" "$ONLY"
       fi
@@ -397,7 +408,7 @@ for i in $(seq 1 "$MAX_ITERS"); do
 
   after="$(git rev-parse HEAD)"
   if [ "$before" = "$after" ]; then
-    # No commit. A blocked card now commits its own [!] board flip (see PROMPT_build.md),
+    # No commit. A blocked card now commits its own [!] board flip (see build-card SKILL.md),
     # so a true stall here means the agent is spinning — not that it hit a blocker.
     stall=$((stall + 1))
     log "=== ralph: no new commit ($stall/$STALL_LIMIT) ==="
@@ -409,7 +420,7 @@ for i in $(seq 1 "$MAX_ITERS"); do
     stall=0
     # The one thing worth a phone ping mid-run: the agent BLOCKED a card ([ ] -> [!]),
     # which only happens when it couldn't make verify pass (and, if Slack is wired,
-    # the human it asked didn't redirect it — see PROMPT_build.md step 6). Objective
+    # the human it asked didn't redirect it — see build-card SKILL.md step 6). Objective
     # event on the committed board, not an agent judgment call — no "when do I ask?"
     # fuzz. Anything the agent can finish is finished silently.
     newblock="$(git diff "$before..$after" -- IMPLEMENTATION_PLAN.md 2>/dev/null | grep -E '^\+- \[!\]' | sed 's/^+//' || true)"

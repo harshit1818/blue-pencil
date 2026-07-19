@@ -61,9 +61,10 @@ pattern to propose (step 3); **<3** is compressed into one open line (step 4, co
 
 Pick the smallest durable surface (criteria §3 table):
 
-- **Instruction lesson** → edit `PROMPT_build.md` / `AGENTS.md` / `PROMPT_review.md`. One commit
-  per pattern, Conventional Commits (`docs(loop): <what changed>`). Add the minimum words that
-  change behaviour.
+- **Instruction lesson** → edit the relevant skill file (`.claude/skills/build-card/SKILL.md` or
+  its `references/*.md`, `.claude/skills/review-diff/SKILL.md`) or `AGENTS.md`. One commit per
+  pattern, Conventional Commits (`docs(loop): <what changed>`). Add the minimum words that change
+  behaviour — a narrow lesson belongs in the smallest reference, not the whole SKILL.md.
 - **Code/script lesson** → do NOT diff. File an issue and record its URL for the PR body:
 
   ```bash
@@ -91,7 +92,7 @@ Track counts per bucket for the PR body. A lesson you promoted in step 3 → del
 If step 3 produced proposals **or** step 4 removed lines:
 
 ```bash
-git add PROGRESS.md AGENTS.md PROMPT_build.md PROMPT_review.md loops/retrospective/state.json
+git add PROGRESS.md AGENTS.md .claude/skills loops/retrospective/state.json
 git commit -m "docs(loop): retrospective <date> — <n> proposal(s), compact <removed> lines"
 git push -u origin "loop/retro-$(date -u +%Y%m%d)"
 gh pr create --base main --title "loop: retrospective <date>" --body-file <PR body>
