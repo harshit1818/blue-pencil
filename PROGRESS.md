@@ -16,3 +16,5 @@ Format: `- [UTC] iter N/M → <short-sha>  cost=$X duration=Yms`
 - [2026-07-18T19:37:29Z] iter 4/10 → cae04dd  cost=$2.7723535000000004 duration=865090ms
 - learning: `loop.sh` exports its knobs (ONLY, MODEL, …) into the agent env, and the loop-sandbox tests inherited them — so `test/loop.test.mjs` failed 17 tests only when run from inside an `ONLY=N` iteration. The sandbox now deletes every loop/stub knob before spawning loop.sh (test/helpers/loop-sandbox.mjs KNOBS); if harness tests fail mysteriously, suspect inherited env first.
 - [2026-07-18T22:07:09Z] iter 1/10 → f145a26  cost=$6.940339999999997 duration=968889ms
+- learning: the per-issue driver (loop-issues.sh) exports its control vars (ONLY, BASE, …) into the agent env, and the loop sandbox tests inherited process.env — so EVERY driver iteration ran verify with 17 loop tests red (sandbox loop.sh targeted the outer ONLY issue, absent from the sandbox board). Fixed by stripping loop control vars in test/helpers/loop-sandbox.mjs; if loop.sh grows a new env knob, add it to LOOP_VARS there.
+- [2026-07-18T22:24:59Z] iter 1/10 → 1399735  cost=$4.6109729999999995 duration=657059ms

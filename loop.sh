@@ -41,6 +41,7 @@ EXIT_MAXITERS=6      # ran out of iterations with v:auto work still on the board
 EXIT_PUSH=7          # too many consecutive push failures
 EXIT_ITER_FAILED=8   # the claude invocation failed past its retries
 EXIT_LOCKED=9        # another loop is already running against this checkout
+EXIT_LIMIT=10        # usage-limited (429) past LIMIT_WAIT_MAX — likely the weekly cap
 
 MAX_ITERS="${1:-10}"
 STALL_LIMIT="${STALL_LIMIT:-2}"
@@ -48,6 +49,8 @@ PUSH_FAIL_LIMIT="${PUSH_FAIL_LIMIT:-3}"
 ITER_TIMEOUT="${ITER_TIMEOUT:-1800}"  # seconds; kill a hung iteration (30m default)
 RETRIES="${RETRIES:-2}"               # extra attempts after a failed/timed-out call
 BACKOFF="${BACKOFF:-10}"              # seconds per attempt between retries
+LIMIT_POLL="${LIMIT_POLL:-900}"       # seconds between probes while usage-limited (429)
+LIMIT_WAIT_MAX="${LIMIT_WAIT_MAX:-28800}"  # give up on 429s after this long (8h > any 5h window)
 MAX_TURNS="${MAX_TURNS:-}"           # optional per-iteration turn cap (empty = unset)
 MODEL="${MODEL:-sonnet}"             # sonnet for speed; set MODEL=opus for hard work
 BASE="${BASE:-main}"                 # PR base branch
@@ -288,10 +291,36 @@ for i in $(seq 1 "$MAX_ITERS"); do
     } | claude -p --dangerously-skip-permissions --model "$MODEL" --output-format json \
       ${MAX_TURNS:+--max-turns "$MAX_TURNS"} > "$iter_out" 2>>.loop/loop.log
   }
+  # A usage-limited call (HTTP 429) is a pause, not a failure: it burns zero tokens
+  # (the result JSON records cost 0), so the cheapest "usage monitor" is the probe
+  # itself — sleep LIMIT_POLL and re-run the same iteration until the window resets.
+  # 429s consume no retries and don't touch the stall counter; only real failures
+  # (crash/timeout) burn the RETRIES budget. LIMIT_WAIT_MAX bounds the waiting so a
+  # weekly-cap wall exits distinctly (EXIT_LIMIT) instead of sleeping for days.
+  is_usage_limited() {
+    node -e '
+      try { const d = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"))
+        process.exit(d.api_error_status === 429 ? 0 : 1) } catch { process.exit(1) }' "$1"
+  }
   rc=1
-  for attempt in $(seq 0 "$RETRIES"); do
-    [ "$attempt" -gt 0 ] && { log "=== ralph: retry $attempt/$RETRIES (previous rc=$rc) ==="; sleep "$((attempt * BACKOFF))"; }
+  attempt=0
+  limit_waited=0
+  while :; do
     if run_with_timeout "$ITER_TIMEOUT" run_claude; then rc=0; break; else rc=$?; fi
+    if is_usage_limited "$iter_out"; then
+      if [ "$limit_waited" -ge "$LIMIT_WAIT_MAX" ]; then
+        log "=== ralph: usage-limited for ${limit_waited}s (cap ${LIMIT_WAIT_MAX}s) — giving up, likely the weekly cap. ==="
+        exit "$EXIT_LIMIT"
+      fi
+      log "=== ralph: usage limit hit (429, free probe) — sleeping ${LIMIT_POLL}s, waited ${limit_waited}/${LIMIT_WAIT_MAX}s ==="
+      sleep "$LIMIT_POLL"
+      limit_waited=$((limit_waited + LIMIT_POLL))
+      continue
+    fi
+    attempt=$((attempt + 1))
+    [ "$attempt" -gt "$RETRIES" ] && break
+    log "=== ralph: retry $attempt/$RETRIES (previous rc=$rc) ==="
+    sleep "$((attempt * BACKOFF))"
   done
   if [ "$rc" -ne 0 ]; then
     log "=== ralph: iteration $i failed after $RETRIES retries (rc=$rc; 124=timeout) — stopping. ==="
