@@ -36,10 +36,10 @@ test('happy path: delivers #100, merge gate passes, base advances, driver ends o
   const sb = setupSandbox()
   const r = runDriver(sb)
   assert.equal(r.status, EXIT.OK)
-  assert.match(r.gh, /pr ready loop\/issue-100/)
-  assert.match(r.gh, /pr merge loop\/issue-100 --merge --delete-branch/)
-  assert.match(r.gh, /--subject feat: card #100 \(Closes #100\) \(#100\)/) // merge subject = PR title, not "merge: loop/issue-100"
-  assert.ok(!/--subject merge: loop\/issue-100/.test(r.gh), 'merge subject must not be loop bookkeeping')
+  assert.match(r.gh, /pr ready 100-[a-z0-9-]+/) // human N-slug branch, not loop/issue-100
+  assert.match(r.gh, /pr merge 100-[a-z0-9-]+ --merge --delete-branch/)
+  assert.match(r.gh, /--subject feat: card #100 \(Closes #100\) \(#100\)/) // merge subject = PR title
+  assert.ok(!/--subject merge:/.test(r.gh), 'merge subject must not be loop bookkeeping')
   assert.match(originLog(sb), /feat: card #100 \(Closes #100\)/) // the "merge" landed on base
   assert.equal(execFileSync('git', ['branch', '--show-current'], { cwd: sb.dir, encoding: 'utf8' }).trim(), 'work')
   assert.match(r.log, /1 merged/)
@@ -90,12 +90,12 @@ test('MAX_ISSUES must be numeric', () => {
   assert.equal(r.status, EXIT.BADARGS)
 })
 
-test('issues with open loop/issue-N PRs are skipped at startup (resume safety)', () => {
+test('issues with open N-slug PRs are skipped at startup (resume safety)', () => {
   const sb = setupSandbox()
   mkdirSync(join(sb.dir, '.loop'), { recursive: true })
   writeFileSync(
     join(sb.dir, '.loop', 'pr-list.json'),
-    JSON.stringify([{ headRefName: 'loop/issue-100' }, { headRefName: 'feat/unrelated' }]),
+    JSON.stringify([{ headRefName: '100-parked' }, { headRefName: 'feat/unrelated' }]),
   )
   const r = runDriver(sb, 2)
   assert.equal(r.status, EXIT.OK)
@@ -108,27 +108,28 @@ test('after a merge, a parked PR behind base is caught up (resync wiring)', () =
   const sb = setupSandbox()
   const g = (...a) => execFileSync('git', a, { cwd: sb.dir, env: sb.env, encoding: 'utf8' })
   // A parked PR whose branch sits at the old base, one trivial commit ahead.
-  g('checkout', '-q', '-b', 'loop/issue-102')
+  g('checkout', '-q', '-b', '102-parked')
   writeFileSync(join(sb.dir, 'docs-x.md'), 'parked\n')
   g('add', '-A'); g('commit', '-q', '-m', 'parked work')
-  g('push', '-q', 'origin', 'loop/issue-102')
-  g('checkout', '-q', 'work'); g('branch', '-q', '-D', 'loop/issue-102')
+  g('push', '-q', 'origin', '102-parked')
+  g('checkout', '-q', 'work'); g('branch', '-q', '-D', '102-parked')
   mkdirSync(join(sb.dir, '.loop'), { recursive: true })
-  writeFileSync(join(sb.dir, '.loop', 'pr-list.json'), JSON.stringify([{ headRefName: 'loop/issue-102' }]))
+  writeFileSync(join(sb.dir, '.loop', 'pr-list.json'), JSON.stringify([{ headRefName: '102-parked' }]))
 
   const r = runDriver(sb) // delivers + merges #100, advancing base
   assert.equal(r.status, EXIT.OK)
   assert.match(r.log, /resync:/)
   // The parked branch now contains the merged card commit — it caught up to base.
-  assert.match(g('log', 'origin/loop/issue-102', '--pretty=%s'), /feat: card #100/)
+  assert.match(g('log', 'origin/102-parked', '--pretty=%s'), /feat: card #100/)
 })
 
 test('a stale remote branch from a closed PR is cleared before re-delivery', () => {
   const sb = setupSandbox()
-  // Simulate an old, closed-PR run: a divergent remote loop/issue-100 (no pr-list entry).
+  // Simulate an old, closed-PR run: a divergent remote branch at the name the driver will
+  // derive for #100 ("A1 — an auto card" -> "100-a1-an-auto-card"), with no pr-list entry.
   execFileSync('git', ['checkout', '-q', '-b', 'stale'], { cwd: sb.dir })
   execFileSync('git', ['commit', '--allow-empty', '-q', '-m', 'stale old attempt'], { cwd: sb.dir })
-  execFileSync('git', ['push', '-q', 'origin', 'stale:refs/heads/loop/issue-100'], { cwd: sb.dir })
+  execFileSync('git', ['push', '-q', 'origin', 'stale:refs/heads/100-a1-an-auto-card'], { cwd: sb.dir })
   execFileSync('git', ['checkout', '-q', 'work'], { cwd: sb.dir })
   execFileSync('git', ['branch', '-q', '-D', 'stale'], { cwd: sb.dir })
 

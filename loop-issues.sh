@@ -38,12 +38,25 @@ log() { echo "[$(date -u +%FT%TZ)] $*" | tee -a .loop/issues.log; }
 # Phone ping for merge outcomes and stops (see loop.sh notify). Best-effort no-op.
 notify() { scripts/notify.sh "🔀 [issues] $*" >/dev/null 2>&1 || true; }
 
-# Open loop/issue-N PR head branches, one per line. gh's --jq is ignored by the
-# test stub, so parse the raw JSON in node (same reason the skip list does below).
+# Human-readable branch name for an issue: <number>-<kebab-slug-of-title>, <=40 chars
+# (e.g. 53-ax-probe-cli-per-app-truth-table). The leading NUMBER is the stable key — the
+# ownership regex and the skip list key off it — so the slug is purely cosmetic and a later
+# title edit never breaks resume (an issue with an open PR is skip-listed by number, so its
+# branch name is never re-derived). Falls back to `<n>-card` when the title can't be read.
+branch_for() {
+  local n="$1" title slug
+  title="$(gh issue view "$n" --json title -q .title 2>/dev/null || true)"
+  slug="$(printf '%s' "$title" | tr '[:upper:]' '[:lower:]' \
+          | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//' | cut -c1-40 | sed -E 's/-+$//')"
+  [ -n "$slug" ] && printf '%s-%s' "$n" "$slug" || printf '%s-card' "$n"
+}
+
+# Open loop-owned PR head branches (the `<number>-<slug>` scheme), one per line. gh's --jq
+# is ignored by the test stub, so parse the raw JSON in node (same reason the skip list does).
 open_loop_branches() {
   gh pr list --state open --limit 100 --json headRefName 2>/dev/null \
     | node -e 'let a=[];try{a=JSON.parse(require("fs").readFileSync(0,"utf8"))}catch{}
-        process.stdout.write(a.map((p)=>p.headRefName).filter((h)=>/^loop\/issue-\d+$/.test(h)).join("\n"))' \
+        process.stdout.write(a.map((p)=>p.headRefName).filter((h)=>/^\d+-[a-z0-9-]+$/.test(h)).join("\n"))' \
     || true
 }
 
@@ -78,7 +91,7 @@ git pull -q --ff-only origin "$BASE"
 # human (a previous run's gate failed, or the run died before merging). Re-picking
 # it would rebuild from scratch and then fail pushing to the existing branch —
 # so seed the skip list from GitHub. Merging or closing the PR un-parks the issue.
-skip="$(open_loop_branches | sed 's#.*/issue-##' | paste -sd , -)"
+skip="$(open_loop_branches | sed -E 's/^([0-9]+)-.*/\1/' | paste -sd , -)"
 [ -n "$skip" ] && log "=== issues: skipping issue(s) with open PRs: $skip ==="
 merged=0
 for n in $(seq 1 "$MAX_ISSUES"); do
@@ -87,7 +100,7 @@ for n in $(seq 1 "$MAX_ISSUES"); do
     log "=== issues: queue clear after $((n - 1)) issue(s) — stopping. ==="
     break
   fi
-  branch="loop/issue-$issue"
+  branch="$(branch_for "$issue")"
   log "=== issues: #$issue ($n/$MAX_ISSUES) on $branch ==="
 
   git fetch -q origin "$BASE"
