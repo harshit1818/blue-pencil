@@ -38,6 +38,8 @@ test('happy path: delivers #100, merge gate passes, base advances, driver ends o
   assert.equal(r.status, EXIT.OK)
   assert.match(r.gh, /pr ready loop\/issue-100/)
   assert.match(r.gh, /pr merge loop\/issue-100 --merge --delete-branch/)
+  assert.match(r.gh, /--subject feat: card #100 \(Closes #100\) \(#100\)/) // merge subject = PR title, not "merge: loop/issue-100"
+  assert.ok(!/--subject merge: loop\/issue-100/.test(r.gh), 'merge subject must not be loop bookkeeping')
   assert.match(originLog(sb), /feat: card #100 \(Closes #100\)/) // the "merge" landed on base
   assert.equal(execFileSync('git', ['branch', '--show-current'], { cwd: sb.dir, encoding: 'utf8' }).trim(), 'work')
   assert.match(r.log, /1 merged/)

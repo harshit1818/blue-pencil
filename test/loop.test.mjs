@@ -50,6 +50,29 @@ test('a run with pushed work opens a draft PR and posts an independent review', 
   assert.match(sb.read('.loop/review-comment.md'), /Independent review — LGTM/)
 })
 
+test('PR title/body come from .loop/pr-body.md when the agent wrote one (Phase 1 C-path)', () => {
+  const sb = setupSandbox()
+  sb.run(1, { CLAUDE_ACTION: 'commitpr', ...PR_ENV })
+  const gh = sb.read('.loop/gh-calls.log')
+  assert.match(gh, /pr create --draft/)
+  assert.match(gh, /--title feat\(demo\): a real change/) // title is line 1 of pr-body.md
+  assert.ok(!gh.includes('--title loop:'), 'no "loop:" machinery in the title')
+  assert.ok(!gh.includes('Automated'), 'no automation boilerplate in the body')
+})
+
+test('without a pr-body file, the PR title falls back to the issue title, not loop: (Phase 1 A-fallback)', () => {
+  // Here the branch IS the base (`work`), so origin/base..HEAD is empty after the push and
+  // the commit-subject rung can't fire — the issue-title rung does (ONLY=100 -> "A1 — an
+  // auto card"). The commit-subject rung is covered by the real branch≠base topology in
+  // loop-issues.test.mjs's merge-subject assertion.
+  const sb = setupSandbox()
+  sb.run(1, { CLAUDE_ACTION: 'flip', ONLY: '100', ...PR_ENV })
+  const gh = sb.read('.loop/gh-calls.log')
+  assert.match(gh, /pr create --draft/)
+  assert.match(gh, /--title A1 — an auto card/)
+  assert.ok(!gh.includes('--title loop:'), 'fallback title must not be "loop: <branch>"')
+})
+
 test('remediation: an objective finding triggers a bounded auto-fix that re-verifies', () => {
   const sb = setupSandbox()
   sb.run(1, { CLAUDE_ACTION: 'commit', STUB_OBJECTIVE: '1', VERIFY_CMD: 'true', REMEDIATION_ROUNDS: '2', ...PR_ENV })

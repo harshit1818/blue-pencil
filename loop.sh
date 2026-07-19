@@ -89,22 +89,45 @@ log() { echo "[$(date -u +%FT%TZ)] $*" | tee -a .loop/loop.log; }
 # SLACK_CHANNEL are set, so it never affects the run's outcome.
 notify() { scripts/notify.sh "🤖 [$BRANCH] $*" >/dev/null 2>&1 || true; }
 
-# Open a DRAFT PR for this run's branch if one doesn't already exist. Draft +
-# never-merge is the whole point: the loop surfaces work for review, a human decides.
+# Open a DRAFT PR for this run's branch if one doesn't already exist. The PR reads as
+# ordinary engineering work — title names the change, body is what/why/tests — never the
+# loop. The build agent authors .loop/pr-body.md (first line = title, rest = body); if it
+# didn't, we assemble the same shape deterministically from the commit subjects. Draft +
+# never-merge is unchanged: the loop surfaces work for review, a human decides (ADR 0008/0009).
 ensure_pr() {
   [ "$AUTO_PR" = 1 ] || return 0
   command -v gh >/dev/null 2>&1 || return 0
   gh pr view "$BRANCH" >/dev/null 2>&1 && return 0   # already open
-  local cards; cards="$(git log "origin/$BASE..HEAD" --grep='Closes #' --pretty='- %s' 2>/dev/null || true)"
-  log "=== ralph: opening draft PR for $BRANCH ==="
-  gh pr create --draft --base "$BASE" --head "$BRANCH" \
-    --title "loop: $BRANCH" \
-    --body "Automated **draft** from loop.sh — loop.sh never merges; loop-issues.sh merges only on a clean review gate (ADR 0008).
+  local cards ncards title body
+  cards="$(git log "origin/$BASE..HEAD" --grep='Closes #' --pretty='- %s' 2>/dev/null || true)"
+  ncards="$(printf '%s' "$cards" | grep -c . || true)"
+  if [ -s .loop/pr-body.md ]; then
+    # C-path: trust the agent's narrative. Line 1 is the title; the rest (minus one blank
+    # separator) is the body. On a multi-card run the narrative covers only the last card,
+    # so append the full change list so nothing is hidden.
+    title="$(head -1 .loop/pr-body.md)"
+    body="$(tail -n +2 .loop/pr-body.md | sed '1{/^[[:space:]]*$/d;}')"
+    [ "${ncards:-0}" -gt 1 ] && body="$body
 
-Cards this run:
+## Changes
+$cards"
+  else
+    # A-fallback: title from the primary card's commit subject (reuse the already-guarded
+    # $cards — a bare `git log | head` would trip pipefail+set -e when origin/$BASE is
+    # absent), then the issue title (targeted runs), then the branch. Body from the commits.
+    title="$(printf '%s\n' "$cards" | sed -n '1{s/^- //;p;}')"
+    [ -z "$title" ] && [ -n "$ONLY" ] && title="$(gh issue view "$ONLY" --json title -q .title 2>/dev/null || true)"
+    [ -z "$title" ] && title="$BRANCH"
+    body="## Changes
 ${cards:-（none detected）}
 
-\`verify\` (typecheck/lint/secret-scan/test/build) passed for each commit. UI / \`v:human\` behaviour is NOT verified here." \
+## Testing
+Automated checks (typecheck, lint, tests, build) pass. UI behaviour is not covered by these checks."
+  fi
+  log "=== ralph: opening draft PR for $BRANCH ==="
+  gh pr create --draft --base "$BASE" --head "$BRANCH" \
+    --title "$title" \
+    --body "$body" \
     2>&1 | tee -a .loop/loop.log || log "=== ralph: gh pr create failed (continuing) ==="
   notify "draft PR ready for review: $(gh pr view "$BRANCH" --json url -q .url 2>/dev/null || echo "$BRANCH")"
 }
@@ -249,7 +272,7 @@ if ! mkdir .loop/lock 2>/dev/null; then
 fi
 trap 'rmdir .loop/lock 2>/dev/null || true' EXIT
 
-rm -f .loop/DONE .loop/telemetry.md
+rm -f .loop/DONE .loop/telemetry.md .loop/pr-body.md
 stall=0
 pushfail=0
 pushed_any=0

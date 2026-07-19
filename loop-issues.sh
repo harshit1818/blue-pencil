@@ -109,8 +109,12 @@ for n in $(seq 1 "$MAX_ISSUES"); do
   if [ "$AUTO_MERGE" = 1 ] && gh pr view "$branch" >/dev/null 2>&1 \
      && node scripts/review-triage.mjs mergeable .loop/review.json >>.loop/issues.log 2>&1; then
     log "=== issues: gate passed — merging #$issue ==="
+    # Merge commit reads as the task (the PR's own title), not loop bookkeeping. The branch
+    # commits still carry `Closes #$issue`, so the issue closes regardless of this subject.
+    subject="$(gh pr view "$branch" --json title -q .title 2>/dev/null)"
+    [ -n "$subject" ] && subject="$subject (#$issue)" || subject="merge: $branch (Closes #$issue)"
     if ! { gh pr ready "$branch" \
-           && gh pr merge "$branch" --merge --delete-branch --subject "merge: $branch (Closes #$issue)"; } \
+           && gh pr merge "$branch" --merge --delete-branch --subject "$subject"; } \
          2>&1 | tee -a .loop/issues.log; then
       log "=== issues: merge failed for #$issue — stopping for a human. ==="
       notify "merge FAILED for #$issue — merge state needs a human."

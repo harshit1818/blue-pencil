@@ -43,6 +43,10 @@ case "$action" in
   branch) git checkout -q -b hijacked; exit 0 ;;
   sleep)  sleep "\${CLAUDE_SLEEP:-5}"; exit 0 ;;
   commit) git commit --allow-empty -q -m "stub work"; echo '{"total_cost_usd":0.0123,"duration_ms":42}'; exit 0 ;;
+  commitpr) # like commit, but also authors a task-focused PR body (Phase 1 C-path)
+          printf 'feat(demo): a real change\\n\\n## What\\ndid a thing\\n## Why\\nCloses #100\\n## Testing\\ntests pass\\n' > .loop/pr-body.md
+          git commit --allow-empty -q -m "feat(demo): a real change (Closes #100)"
+          echo '{"total_cost_usd":0.01,"duration_ms":10}'; exit 0 ;;
   flip)   # deliver the targeted card: flip [ ] -> [x] on the board and commit
           n="$(printf '%s' "$input" | sed -n 's/.*Work ONLY on GitHub issue #\\([0-9]*\\).*/\\1/p' | head -1)"
           node -e '
@@ -81,11 +85,20 @@ function writeGhStub(bin, jsonPath) {
     `#!/usr/bin/env bash
 echo "gh $*" >> .loop/gh-calls.log 2>/dev/null || true
 case "$1" in
-  issue) cat ${jsonPath} ;;
+  issue)
+    # \`issue list\` (regen-board) -> full array; \`issue view N --json title -q .title\` -> just the title.
+    if [ "$2" = view ]; then
+      node -e 'const a=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));const i=a.find((x)=>String(x.number)===process.argv[2]);process.stdout.write(i?i.title:"")' ${jsonPath} "$3"
+    else
+      cat ${jsonPath}
+    fi ;;
   pr)
     case "$2" in
-      view)    [ -f .loop/pr-exists ] && exit 0 || exit 1 ;;
-      create)  : > .loop/pr-exists; echo "https://example.test/pr/1" ;;
+      view)    if printf '%s' "$*" | grep -q title; then cat .loop/pr-title 2>/dev/null || echo "stub title";
+               else [ -f .loop/pr-exists ] && exit 0 || exit 1; fi ;;
+      create)  t=""; while [ $# -gt 0 ]; do [ "$1" = "--title" ] && t="$2"; shift; done
+               printf '%s' "$t" > .loop/pr-title
+               : > .loop/pr-exists; echo "https://example.test/pr/1" ;;
       comment) : ;;
       ready)   : ;;
       merge)   git push -q origin "HEAD:\${BASE:-main}" ;;
