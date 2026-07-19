@@ -84,6 +84,11 @@ fi
 # Timestamped log line, mirrored to console and .loop/loop.log (created below).
 log() { echo "[$(date -u +%FT%TZ)] $*" | tee -a .loop/loop.log; }
 
+# Push a phone notification for the moments that actually need eyes — stops and
+# come-look-now events, NOT every log line. Best-effort and no-op unless
+# SLACK_BOT_TOKEN/SLACK_CHANNEL are set, so it never affects the run's outcome.
+notify() { scripts/notify.sh "🤖 [$BRANCH] $*" >/dev/null 2>&1 || true; }
+
 # Open a DRAFT PR for this run's branch if one doesn't already exist. Draft +
 # never-merge is the whole point: the loop surfaces work for review, a human decides.
 ensure_pr() {
@@ -101,6 +106,7 @@ ${cards:-（none detected）}
 
 \`verify\` (typecheck/lint/secret-scan/test/build) passed for each commit. UI / \`v:human\` behaviour is NOT verified here." \
     2>&1 | tee -a .loop/loop.log || log "=== ralph: gh pr create failed (continuing) ==="
+  notify "draft PR ready for review: $(gh pr view "$BRANCH" --json url -q .url 2>/dev/null || echo "$BRANCH")"
 }
 
 # Run one independent review (a FRESH agent — no session continuity with the author,
