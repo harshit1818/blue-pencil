@@ -8,6 +8,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { EventEmitter } from 'node:events'
 import { createHelperSupervisor, TICK_MS } from '../src/main/helper-supervisor.js'
+import { createLifecycle } from '../src/main/helper-lifecycle.js'
 
 class FakeChild extends EventEmitter {
   constructor() {
@@ -144,6 +145,49 @@ test('a throwing subscriber never breaks the stream (R12)', () => {
   h.sup.start()
   assert.doesNotThrow(() => h.children[0].stdout.emit('data', '{"type":"focus"}\n{"type":"bounds"}\n'))
   assert.equal(h.events.length, 2, 'later listeners and events still delivered')
+})
+
+test("a killed child's late stdout is ignored — no ghost events, no heartbeat (R12)", () => {
+  const children = []
+  const events = []
+  let heartbeats = 0
+  const real = createLifecycle()
+  const sup = createHelperSupervisor({
+    spawn: () => {
+      const c = new FakeChild()
+      children.push(c)
+      return c
+    },
+    isGranted: () => true,
+    now: () => 0,
+    timers: { setInterval: () => 1, clearInterval: () => {} },
+    lifecycle: {
+      get state() {
+        return real.state
+      },
+      start: real.start,
+      exit: real.exit,
+      tick: real.tick,
+      heartbeat: (t) => {
+        heartbeats++
+        return real.heartbeat(t)
+      }
+    }
+  })
+  sup.on((evt) => events.push(evt))
+  sup.start()
+  sup.stop() // kills + detaches the child; SIGTERM may still be in flight
+  const seen = events.length
+  children[0].stdout.emit('data', '{"type":"focus","bundleId":"com.x"}\n{"type":"heartbeat"}\n')
+  assert.equal(events.length, seen, 'no events from a detached child')
+  assert.equal(heartbeats, 0, 'no heartbeat from a detached child')
+})
+
+test('start() while already running is a no-op — no duplicate helper', () => {
+  const h = harness()
+  assert.equal(h.sup.start(), true)
+  assert.equal(h.sup.start(), true)
+  assert.equal(h.children.length, 1)
 })
 
 test('stop kills the child, clears the interval, and ignores the resulting exit', () => {

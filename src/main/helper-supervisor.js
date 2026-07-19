@@ -87,6 +87,7 @@ export function createHelperSupervisor({
     c.on('error', died)
     c.on('exit', died)
     c.stdout?.on('data', (chunk) => {
+      if (child !== c) return // a killed-but-not-yet-dead child must not resurrect events
       for (const evt of parser.push(chunk)) {
         if (evt?.type === 'heartbeat') lifecycle.heartbeat(now())
         emit(evt)
@@ -101,8 +102,9 @@ export function createHelperSupervisor({
     },
     start() {
       if (!isGranted()) return false
+      if (interval != null) return true // already running — don't spawn a duplicate
       apply(lifecycle.start(now()))
-      interval ??= timers.setInterval(() => apply(lifecycle.tick(now())), TICK_MS)
+      interval = timers.setInterval(() => apply(lifecycle.tick(now())), TICK_MS)
       return true
     },
     stop() {

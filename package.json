@@ -55,6 +55,12 @@
       "out/**/*",
       "package.json"
     ],
+    "extraResources": [
+      {
+        "from": "helper/ax-probe",
+        "to": "ax-probe"
+      }
+    ],
     "mac": {
       "icon": "build/icon.icns",
       "category": "public.app-category.productivity",

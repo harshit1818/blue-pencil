@@ -38,6 +38,8 @@ let tray = null
 // stderr is discarded and start() is a no-op without Accessibility permission
 // (isAccessibilityGranted never prompts) — R12/R13. A missing binary (not yet
 // compiled via `npm run helper:build`) just backs off and gives up silently.
+// Packaged builds ship it via extraResources, so `npm run dist` needs
+// `npm run helper:build` first (the binary is gitignored).
 const helperBin = () =>
   app.isPackaged
     ? join(process.resourcesPath, 'ax-probe')
