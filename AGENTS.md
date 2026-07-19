@@ -37,6 +37,10 @@ assertion that can't fail on bad output is not enough (see the v:auto policy bel
 - Comments only where intent isn't obvious; this repo is comment-light.
 - Record durable operational learnings here; never progress notes (those go in
   IMPLEMENTATION_PLAN.md).
+- Injected-deps factories need a loose JSDoc `@param` — checkJs infers the param
+  type from the destructured default (e.g. `timers = { setInterval, clearInterval }`
+  demands the real Node signatures), so test fakes fail typecheck without it
+  (see helper-supervisor.js).
 
 ## Loop harness
 
