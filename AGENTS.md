@@ -40,6 +40,10 @@ assertion that can't fail on bad output is not enough (see the v:auto policy bel
 
 ## Loop harness
 
+- Branch names `<issue-number>-<slug>` (digit-first, e.g. `53-ax-probe-cli`) belong to the
+  per-issue driver (`loop-issues.sh`). Don't hand-create a digit-first branch whose number is
+  an open `v:auto` card — the driver would treat it as a parked PR (skip the issue, resync the
+  branch). Name human branches `feat/...`, `fix/...`, etc.
 - Adding a loop-control env var to `loop.sh` / `loop-issues.sh` (e.g. `ONLY`, `MODEL`,
   `BASE`)? Also add it to `LOOP_VARS` in `test/helpers/loop-sandbox.mjs` — the sandbox
   must strip it, or the harness tests inherit the outer loop's env and go red *only*
