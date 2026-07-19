@@ -101,3 +101,22 @@ test('issues with open loop/issue-N PRs are skipped at startup (resume safety)',
   assert.match(r.log, /queue clear after 0 issue/)
   assert.ok(!sb.exists('.loop/claude-stdin.log'), 'agent must not run for a parked issue')
 })
+
+test('after a merge, a parked PR behind base is caught up (resync wiring)', () => {
+  const sb = setupSandbox()
+  const g = (...a) => execFileSync('git', a, { cwd: sb.dir, env: sb.env, encoding: 'utf8' })
+  // A parked PR whose branch sits at the old base, one trivial commit ahead.
+  g('checkout', '-q', '-b', 'loop/issue-102')
+  writeFileSync(join(sb.dir, 'docs-x.md'), 'parked\n')
+  g('add', '-A'); g('commit', '-q', '-m', 'parked work')
+  g('push', '-q', 'origin', 'loop/issue-102')
+  g('checkout', '-q', 'work'); g('branch', '-q', '-D', 'loop/issue-102')
+  mkdirSync(join(sb.dir, '.loop'), { recursive: true })
+  writeFileSync(join(sb.dir, '.loop', 'pr-list.json'), JSON.stringify([{ headRefName: 'loop/issue-102' }]))
+
+  const r = runDriver(sb) // delivers + merges #100, advancing base
+  assert.equal(r.status, EXIT.OK)
+  assert.match(r.log, /resync:/)
+  // The parked branch now contains the merged card commit — it caught up to base.
+  assert.match(g('log', 'origin/loop/issue-102', '--pretty=%s'), /feat: card #100/)
+})

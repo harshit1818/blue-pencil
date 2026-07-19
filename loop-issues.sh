@@ -36,6 +36,26 @@ esac
 mkdir -p .loop
 log() { echo "[$(date -u +%FT%TZ)] $*" | tee -a .loop/issues.log; }
 
+# Open loop/issue-N PR head branches, one per line. gh's --jq is ignored by the
+# test stub, so parse the raw JSON in node (same reason the skip list does below).
+open_loop_branches() {
+  gh pr list --state open --limit 100 --json headRefName 2>/dev/null \
+    | node -e 'let a=[];try{a=JSON.parse(require("fs").readFileSync(0,"utf8"))}catch{}
+        process.stdout.write(a.map((p)=>p.headRefName).filter((h)=>/^loop\/issue-\d+$/.test(h)).join("\n"))' \
+    || true
+}
+
+# After $BASE advances, keep every still-open parked PR mergeable so it can't rot
+# into conflicts (what bit #84/#86 last run). resync-pr.sh auto-resolves the loop's
+# bookkeeping-only conflicts and leaves any real conflict for a human.
+resync_parked() {
+  local b
+  for b in $(open_loop_branches); do
+    BASE="$BASE" bash scripts/resync-pr.sh "$b" 2>&1 | tee -a .loop/issues.log \
+      || log "=== issues: resync of $b needs a human (real conflict) ==="
+  done
+}
+
 # Same single-writer mkdir pattern as loop.sh, separate lock: the driver owns the
 # checkout BETWEEN inner runs too (branch switches, pulls).
 if ! mkdir .loop/issues-lock 2>/dev/null; then
@@ -56,14 +76,7 @@ git pull -q --ff-only origin "$BASE"
 # human (a previous run's gate failed, or the run died before merging). Re-picking
 # it would rebuild from scratch and then fail pushing to the existing branch —
 # so seed the skip list from GitHub. Merging or closing the PR un-parks the issue.
-skip="$(gh pr list --state open --limit 100 --json headRefName 2>/dev/null \
-  | node -e '
-      let a = []
-      try { a = JSON.parse(require("fs").readFileSync(0, "utf8")) } catch {}
-      process.stdout.write(a.map((p) => p.headRefName)
-        .filter((h) => /^loop\/issue-\d+$/.test(h))
-        .map((h) => h.replace("loop/issue-", "")).join(","))' \
-  || true)"
+skip="$(open_loop_branches | sed 's#.*/issue-##' | paste -sd , -)"
 [ -n "$skip" ] && log "=== issues: skipping issue(s) with open PRs: $skip ==="
 merged=0
 for n in $(seq 1 "$MAX_ISSUES"); do
@@ -97,6 +110,8 @@ for n in $(seq 1 "$MAX_ISSUES"); do
       exit "$EXIT_MERGE"
     fi
     merged=$((merged + 1))
+    git fetch -q origin "$BASE"   # so resync sees the just-merged $BASE
+    resync_parked
   else
     log "=== issues: not merging #$issue (gate failed, no PR, or AUTO_MERGE=0) — PR left for a human. ==="
   fi

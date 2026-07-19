@@ -30,3 +30,11 @@ and the reviewer's `NEEDS-WORK` verdict is the blocking lever.
   `AUTO_MERGE=0` restores surface-only behaviour.
 - `loop.sh` itself still never merges; merge policy lives in the driver.
 - Sequential issues from fresh main: no cross-branch conflicts by construction.
+- A parked PR (gate failed, left open) rots as later PRs merge — but only on the
+  loop's own bookkeeping: the board (a regenerable label projection) and PROGRESS.md
+  (append-only). After every merge the driver runs `scripts/resync-pr.sh` on each
+  open parked PR, merging the new base in and auto-resolving exactly those two files;
+  a conflict in any real file aborts and is left for a human. This keeps parked PRs
+  green without stacking them (which would couple the queue and rebuild on
+  gate-rejected code). Telemetry was moved off-branch (to a PR comment) for the same
+  reason — it was the other half of the structural conflict set.

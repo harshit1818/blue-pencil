@@ -115,6 +115,7 @@ export function setupSandbox({ issues = DEFAULT_ISSUES, withOrigin = true } = {}
   cpSync(join(ROOT, 'PROMPT_review.md'), join(dir, 'PROMPT_review.md'))
   cpSync(join(ROOT, 'scripts', 'regen-board.mjs'), join(dir, 'scripts', 'regen-board.mjs'))
   cpSync(join(ROOT, 'scripts', 'review-triage.mjs'), join(dir, 'scripts', 'review-triage.mjs'))
+  cpSync(join(ROOT, 'scripts', 'resync-pr.sh'), join(dir, 'scripts', 'resync-pr.sh'))
   writeFileSync(join(dir, 'IMPLEMENTATION_PLAN.md'), '# board\n<!-- GH:BEGIN -->\n<!-- GH:END -->\n')
   // Mirror the real repo: .loop/ is gitignored, so the harness's own transient
   // writes never trip the dirty-tree guards (loop.sh checks after mkdir .loop;
