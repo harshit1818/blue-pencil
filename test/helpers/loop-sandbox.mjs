@@ -16,7 +16,7 @@ export const DEFAULT_ISSUES = [
   { number: 101, title: 'A2 — a human card', labels: [{ name: 'epic:A' }, { name: 'severity:low' }, { name: 'verify:human' }] },
 ]
 
-// action: one of noop | commit | done | branch | sleep | failN (e.g. fail1) | cost
+// action: one of noop | commit | done | branch | sleep | failN (e.g. fail1) | limitN | flip | cost
 function writeClaudeStub(bin) {
   writeExecutable(
     join(bin, 'claude'),
@@ -58,6 +58,15 @@ case "$action" in
           seen=$(cat "$c" 2>/dev/null || echo 0)
           if [ "$seen" -lt "$n" ]; then echo $((seen+1)) >"$c"; exit 1; fi
           git commit --allow-empty -q -m "stub work after retry"; exit 0 ;;
+  limit*) # usage-limited: N probes answer 429 (rc=1, zero cost), then work resumes
+          n="\${action#limit}"; c=.loop/stub-limits
+          seen=$(cat "$c" 2>/dev/null || echo 0)
+          if [ "$seen" -lt "$n" ]; then
+            echo $((seen+1)) >"$c"
+            echo '{"type":"result","is_error":true,"api_error_status":429,"result":"session limit reached","total_cost_usd":0}'
+            exit 1
+          fi
+          git commit --allow-empty -q -m "stub work after limit"; exit 0 ;;
   *) exit 0 ;;
 esac
 `,
@@ -80,6 +89,7 @@ case "$1" in
       comment) : ;;
       ready)   : ;;
       merge)   git push -q origin "HEAD:\${BASE:-main}" ;;
+      list)    cat .loop/pr-list.json 2>/dev/null || echo "[]" ;;
       *) : ;;
     esac ;;
   *) : ;;

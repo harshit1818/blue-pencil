@@ -52,7 +52,19 @@ fi
 git checkout -q "$BASE"
 git pull -q --ff-only origin "$BASE"
 
-skip=""
+# Resume-safety: an issue whose loop/issue-N PR is already open is parked with a
+# human (a previous run's gate failed, or the run died before merging). Re-picking
+# it would rebuild from scratch and then fail pushing to the existing branch —
+# so seed the skip list from GitHub. Merging or closing the PR un-parks the issue.
+skip="$(gh pr list --state open --limit 100 --json headRefName 2>/dev/null \
+  | node -e '
+      let a = []
+      try { a = JSON.parse(require("fs").readFileSync(0, "utf8")) } catch {}
+      process.stdout.write(a.map((p) => p.headRefName)
+        .filter((h) => /^loop\/issue-\d+$/.test(h))
+        .map((h) => h.replace("loop/issue-", "")).join(","))' \
+  || true)"
+[ -n "$skip" ] && log "=== issues: skipping issue(s) with open PRs: $skip ==="
 merged=0
 for n in $(seq 1 "$MAX_ISSUES"); do
   issue="$(node scripts/regen-board.mjs next ${skip:+--skip "$skip"})"

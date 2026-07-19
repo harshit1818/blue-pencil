@@ -5,7 +5,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync, execFileSync } from 'node:child_process'
 import { join } from 'node:path'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { setupSandbox } from './helpers/loop-sandbox.mjs'
 
 // Driver exit codes — mirror of the EXIT_* table in loop-issues.sh (keep in sync).
@@ -86,4 +86,18 @@ test('MAX_ISSUES must be numeric', () => {
   const sb = setupSandbox()
   const r = spawnSync('bash', ['loop-issues.sh', 'abc'], { cwd: sb.dir, env: sb.env, encoding: 'utf8' })
   assert.equal(r.status, EXIT.BADARGS)
+})
+
+test('issues with open loop/issue-N PRs are skipped at startup (resume safety)', () => {
+  const sb = setupSandbox()
+  mkdirSync(join(sb.dir, '.loop'), { recursive: true })
+  writeFileSync(
+    join(sb.dir, '.loop', 'pr-list.json'),
+    JSON.stringify([{ headRefName: 'loop/issue-100' }, { headRefName: 'feat/unrelated' }]),
+  )
+  const r = runDriver(sb, 2)
+  assert.equal(r.status, EXIT.OK)
+  assert.match(r.log, /skipping issue\(s\) with open PRs: 100/)
+  assert.match(r.log, /queue clear after 0 issue/)
+  assert.ok(!sb.exists('.loop/claude-stdin.log'), 'agent must not run for a parked issue')
 })
