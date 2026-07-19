@@ -16,7 +16,7 @@ export const DEFAULT_ISSUES = [
   { number: 101, title: 'A2 — a human card', labels: [{ name: 'epic:A' }, { name: 'severity:low' }, { name: 'verify:human' }] },
 ]
 
-// action: one of noop | commit | done | branch | sleep | failN (e.g. fail1) | cost
+// action: one of noop | commit | done | branch | sleep | failN (e.g. fail1) | limitN | flip | cost
 function writeClaudeStub(bin) {
   writeExecutable(
     join(bin, 'claude'),
@@ -58,6 +58,15 @@ case "$action" in
           seen=$(cat "$c" 2>/dev/null || echo 0)
           if [ "$seen" -lt "$n" ]; then echo $((seen+1)) >"$c"; exit 1; fi
           git commit --allow-empty -q -m "stub work after retry"; exit 0 ;;
+  limit*) # usage-limited: N probes answer 429 (rc=1, zero cost), then work resumes
+          n="\${action#limit}"; c=.loop/stub-limits
+          seen=$(cat "$c" 2>/dev/null || echo 0)
+          if [ "$seen" -lt "$n" ]; then
+            echo $((seen+1)) >"$c"
+            echo '{"type":"result","is_error":true,"api_error_status":429,"result":"session limit reached","total_cost_usd":0}'
+            exit 1
+          fi
+          git commit --allow-empty -q -m "stub work after limit"; exit 0 ;;
   *) exit 0 ;;
 esac
 `,
@@ -80,6 +89,7 @@ case "$1" in
       comment) : ;;
       ready)   : ;;
       merge)   git push -q origin "HEAD:\${BASE:-main}" ;;
+      list)    cat .loop/pr-list.json 2>/dev/null || echo "[]" ;;
       *) : ;;
     esac ;;
   *) : ;;
@@ -111,13 +121,17 @@ export function setupSandbox({ issues = DEFAULT_ISSUES, withOrigin = true } = {}
   // loop-issues.sh logs before the inner run even starts).
   writeFileSync(join(dir, '.gitignore'), '.loop/\n')
 
-  // Hermetic against the invoking environment: when these tests run INSIDE a
-  // targeted loop iteration (ONLY=N loop.sh → claude → npm test), the outer
-  // run's control vars would leak in and steer the sandboxed loop.sh.
+  // Hermetic env: verify runs INSIDE a driver iteration (loop-issues.sh exports
+  // ONLY/BASE/... to the agent), so the loop's own control vars must not leak
+  // into the sandboxed loop.sh under test.
+  const LOOP_VARS = [
+    'AUTO_MERGE', 'AUTO_PR', 'AUTO_REVIEW', 'BACKOFF', 'BASE', 'BRANCH',
+    'ITER_TIMEOUT', 'ITERS_PER_ISSUE', 'MAX_TURNS', 'MODEL', 'ONLY',
+    'PUSH_FAIL_LIMIT', 'REMEDIATION_ROUNDS', 'RETRIES', 'STALL_LIMIT',
+    'VERIFY_CMD', 'CLAUDE_ACTION', 'CLAUDE_SLEEP', 'STUB_OBJECTIVE'
+  ]
   const env = { ...process.env, PATH: `${bin}:${process.env.PATH}` }
-  for (const k of Object.keys(env)) {
-    if (/^(ONLY|BASE|BRANCH|MODEL|MAX_TURNS|ITER_TIMEOUT|RETRIES|BACKOFF|STALL_LIMIT|PUSH_FAIL_LIMIT|VERIFY_CMD|AUTO_PR|AUTO_REVIEW|AUTO_MERGE|REMEDIATION_ROUNDS|ITERS_PER_ISSUE|CLAUDE_ACTION|CLAUDE_SLEEP|STUB_OBJECTIVE)$/.test(k)) delete env[k]
-  }
+  for (const k of LOOP_VARS) delete env[k]
   // Pre-populate the board so loop.sh's own regen is an idempotent no-op (clean tree).
   execFileSync('node', ['scripts/regen-board.mjs'], { cwd: dir, env, stdio: 'ignore' })
   git(dir, 'add', '-A')
