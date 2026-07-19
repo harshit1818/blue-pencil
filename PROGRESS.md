@@ -16,5 +16,9 @@ Format: `- [UTC] iter N/M → <short-sha>  cost=$X duration=Yms`
 - [2026-07-18T19:37:29Z] iter 4/10 → cae04dd  cost=$2.7723535000000004 duration=865090ms
 - The per-issue driver can dispatch a card whose "Blocked by" dependency is only merged on another open loop PR (not main) — check the issue body's Blocked-by against merged state before building (#57 vs PR #86).
 - [2026-07-18T22:11:26Z] iter 1/10 → c9c04f6  cost=$1.3546060000000002 duration=87580ms
+- learning: `loop.sh` exports its knobs (ONLY, MODEL, …) into the agent env, and the loop-sandbox tests inherited them — so `test/loop.test.mjs` failed 17 tests only when run from inside an `ONLY=N` iteration. The sandbox now deletes every loop/stub knob before spawning loop.sh (test/helpers/loop-sandbox.mjs KNOBS); if harness tests fail mysteriously, suspect inherited env first.
+- [2026-07-18T22:07:09Z] iter 1/10 → f145a26  cost=$6.940339999999997 duration=968889ms
+- learning: loop-sandbox tests inherited the OUTER loop's env — a targeted run (ONLY=53) leaked ONLY/BASE/MODEL into the sandboxed loop.sh, which then exited "nothing to do" and reddened 17 tests that pass in a clean shell. Sandbox now strips all loop-control vars; if harness tests fail only under the loop, suspect env leakage next.
+- [2026-07-18T21:42:06Z] iter 1/10 → 43c40fe  cost=$6.782419000000001 duration=1020502ms
 - learning: the per-issue driver (loop-issues.sh) exports its control vars (ONLY, BASE, …) into the agent env, and the loop sandbox tests inherited process.env — so EVERY driver iteration ran verify with 17 loop tests red (sandbox loop.sh targeted the outer ONLY issue, absent from the sandbox board). Fixed by stripping loop control vars in test/helpers/loop-sandbox.mjs; if loop.sh grows a new env knob, add it to LOOP_VARS there.
 - [2026-07-18T22:24:59Z] iter 1/10 → 1399735  cost=$4.6109729999999995 duration=657059ms
