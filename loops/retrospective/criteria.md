@@ -48,9 +48,9 @@ One entry in the proposal PR (§5), one commit, targeting the smallest durable s
 
 | The lesson is about… | Propose editing… |
 |---|---|
-| A per-iteration behaviour rule (how the build agent should act each card) | `PROMPT_build.md` |
+| A per-iteration behaviour rule (how the build agent should act each card) | `.claude/skills/build-card/SKILL.md` (or a `references/*.md` for a narrow detail) |
 | A durable operational fact (a command, a layout truth, a gotcha that outlives one card) | `AGENTS.md` |
-| The review agent's behaviour | `PROMPT_review.md` |
+| The review agent's behaviour | `.claude/skills/review-diff/SKILL.md` |
 | A **code or script** change (`loop.sh`, `scripts/*`, `test/*`, product code) | **a new GitHub issue**, NOT a diff — see §4 rule 3 |
 
 Each entry cites its ≥3 pieces of evidence (PROGRESS line quotes, log excerpts, or PR links).
@@ -60,8 +60,9 @@ Prefer the fewest words that change behaviour — this loop fights bloat, it mus
 
 1. **Proposal-only — never merges its own PR.** Retro PRs change the loop's own instructions;
    a human always merges them. (`loop-issues.sh` auto-merge does not apply here.)
-2. **Markdown-only diffs.** The run may edit ONLY: `PROGRESS.md`, `AGENTS.md`, `PROMPT_build.md`,
-   `PROMPT_review.md`, `loops/retrospective/*`. Touching anything else is a bug.
+2. **Markdown-only diffs.** The run may edit ONLY: `PROGRESS.md`, `AGENTS.md`,
+   `.claude/skills/**` (the build-card / review-diff SKILL.md + references), `loops/retrospective/*`.
+   Touching anything else is a bug.
 3. **Code changes leave as issues, not diffs.** A lesson that needs a script/test/product change
    is filed as a new issue (`epic:L` for loop infra) with proper `severity:`/`verify:` labels, so
    the *build* loop implements it. Three separated powers: retro proposes, build implements,
@@ -80,7 +81,7 @@ so bloat is a permanent tax, not a one-time cost.
 Sort every learning line older than `last_run` into exactly one bucket:
 
 - **Delete** — resolved, one-off, or superseded by a promoted rule. (A lesson promoted to
-  `AGENTS.md`/`PROMPT_build.md` this run is now durable there → delete the PROGRESS line.)
+  `AGENTS.md`/a skill file this run is now durable there → delete the PROGRESS line.)
 - **Promote** — durable and not yet captured → it becomes a §3 proposal, then the line is deleted.
 - **Compress** — still-open, <3 evidence → one dated line kept for the next run to re-count.
 
