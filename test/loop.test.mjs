@@ -88,7 +88,8 @@ test('AUTO_REVIEW=0 opens the PR but posts no review comment', () => {
   sb.run(1, { CLAUDE_ACTION: 'commit', AUTO_REVIEW: '0', ...PR_ENV })
   const gh = sb.read('.loop/gh-calls.log')
   assert.match(gh, /pr create --draft/)
-  assert.ok(!gh.includes('pr comment'), 'no review comment when AUTO_REVIEW=0')
+  assert.ok(!gh.includes('review-comment.md'), 'no review comment when AUTO_REVIEW=0')
+  assert.match(gh, /telemetry-comment\.md/) // telemetry still lands on the PR
 })
 
 test('a run that pushes nothing opens no PR', () => {
@@ -203,14 +204,14 @@ test('per-iteration telemetry is captured to .loop/iter-N.json and logged', () =
   assert.match(sb.read('.loop/loop.log'), /^\[\d{4}-\d{2}-\d{2}T/m) // timestamped lines
 })
 
-test('each committing iteration appends a telemetry line to PROGRESS.md', () => {
+test('telemetry lands on the PR as a comment, never as PROGRESS.md commits', () => {
   const sb = setupSandbox()
-  sb.run(2, { CLAUDE_ACTION: 'commit' }) // commits each iter but never flips the card
-  const progress = sb.read('PROGRESS.md')
-  const entries = progress.split('\n').filter((l) => /^- \[.*\] iter \d+\/\d+/.test(l))
-  assert.equal(entries.length, 2, 'one committed line per iteration')
-  // and it is tracked, not a dirty leftover
-  assert.match(sb.read('.loop/loop.log'), /iteration 2\/2/)
+  sb.run(2, { CLAUDE_ACTION: 'commit', BASE: 'work' }) // commits each iter but never flips the card
+  const entries = sb.read('.loop/telemetry.md').split('\n').filter((l) => /^- \[.*\] iter \d+\/\d+/.test(l))
+  assert.equal(entries.length, 2, 'one telemetry line per committing iteration')
+  assert.match(sb.read('.loop/telemetry-comment.md'), /Iteration telemetry/)
+  assert.ok(!sb.gitLog().includes('chore(progress)'), 'telemetry must not be committed (conflict magnet)')
+  assert.ok(!sb.exists('PROGRESS.md'), 'loop.sh must not create PROGRESS.md')
 })
 
 test('consecutive push failures abort with the push code', () => {

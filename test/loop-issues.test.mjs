@@ -120,3 +120,18 @@ test('after a merge, a parked PR behind base is caught up (resync wiring)', () =
   // The parked branch now contains the merged card commit — it caught up to base.
   assert.match(g('log', 'origin/loop/issue-102', '--pretty=%s'), /feat: card #100/)
 })
+
+test('a stale remote branch from a closed PR is cleared before re-delivery', () => {
+  const sb = setupSandbox()
+  // Simulate an old, closed-PR run: a divergent remote loop/issue-100 (no pr-list entry).
+  execFileSync('git', ['checkout', '-q', '-b', 'stale'], { cwd: sb.dir })
+  execFileSync('git', ['commit', '--allow-empty', '-q', '-m', 'stale old attempt'], { cwd: sb.dir })
+  execFileSync('git', ['push', '-q', 'origin', 'stale:refs/heads/loop/issue-100'], { cwd: sb.dir })
+  execFileSync('git', ['checkout', '-q', 'work'], { cwd: sb.dir })
+  execFileSync('git', ['branch', '-q', '-D', 'stale'], { cwd: sb.dir })
+
+  const r = runDriver(sb)
+  assert.equal(r.status, EXIT.OK)
+  assert.match(r.log, /1 merged/)
+  assert.ok(!originLog(sb).includes('stale old attempt'), 'the stale attempt must not survive')
+})
