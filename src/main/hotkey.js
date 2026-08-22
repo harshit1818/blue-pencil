@@ -7,24 +7,26 @@ import { log } from './log.js'
 const ACCELERATOR = "CommandOrControl+Shift+'"
 
 // Grab-and-show, shared by the hotkey and the parked icon (both fire while the
-// source app is still frontmost — the icon window is non-activating).
+// source app is still frontmost — the icon window is non-activating). The
+// in-flight guard makes a double-fire (icon double-click) a no-op: a second
+// concurrent grab would clobber automation.js's single clipboard-restore stash.
+let grabbing = false
 export async function summon() {
-  // Don't summon over our own UI (interaction-spec edge case).
-  const focused = BrowserWindow.getFocusedWindow()
-  if (focused) {
-    log(`  -> swallowed: our window is focused (title="${focused.getTitle()}")`)
-    return
+  if (grabbing) return
+  grabbing = true
+  try {
+    // v1 grab seam: when Accessibility is granted, auto-copy the selection (the
+    // source app is still frontmost here, before the overlay shows). Otherwise
+    // fall back to v0 — read whatever the user already copied. Both paths return
+    // { text, markdown } (rich selections arrive as Markdown — Case 1).
+    const granted = isAccessibilityGranted()
+    const t0 = Date.now()
+    const { text, markdown } = granted ? await grabSelection() : readClipboardSelection()
+    log(`  -> grab done (granted=${granted}, ${Date.now() - t0}ms, chars=${text?.length ?? 0})`)
+    showOverlayAtCursor(text, granted, markdown)
+  } finally {
+    grabbing = false
   }
-
-  // v1 grab seam: when Accessibility is granted, auto-copy the selection (the
-  // source app is still frontmost here, before the overlay shows). Otherwise
-  // fall back to v0 — read whatever the user already copied. Both paths return
-  // { text, markdown } (rich selections arrive as Markdown — Case 1).
-  const granted = isAccessibilityGranted()
-  const t0 = Date.now()
-  const { text, markdown } = granted ? await grabSelection() : readClipboardSelection()
-  log(`  -> grab done (granted=${granted}, ${Date.now() - t0}ms, chars=${text?.length ?? 0})`)
-  showOverlayAtCursor(text, granted, markdown)
 }
 
 async function onFire() {
@@ -33,6 +35,13 @@ async function onFire() {
   if (isOverlayVisible()) {
     log('  -> overlay visible, hiding (toggle)')
     hideOverlay()
+    return
+  }
+  // Don't summon over our own UI (interaction-spec edge case) — hotkey only:
+  // clicking the parked icon is deliberate even while our window is focused.
+  const focused = BrowserWindow.getFocusedWindow()
+  if (focused) {
+    log(`  -> swallowed: our window is focused (title="${focused.getTitle()}")`)
     return
   }
   await summon()

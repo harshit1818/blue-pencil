@@ -10,7 +10,7 @@ import { listProviders, effectiveSettings, isValidProvider } from './providers.j
 import { setProviderId, setModelId, setFloatIcon } from './settings.js'
 import { hasApiKey, setApiKey, seedFromEnv } from './keychain.js'
 import { registerHotkey, unregisterHotkey, summon } from './hotkey.js'
-import { initParkIcon, onIconMouse, showParkIcon, hideParkIcon } from './park-icon.js'
+import { initParkIcon, onIconMouse, showParkIcon, closeParkIcon, isIconSender } from './park-icon.js'
 import {
   resizeOverlay,
   hideOverlay,
@@ -195,13 +195,17 @@ app.whenReady().then(async () => {
     setFloatIcon(on)
     broadcastSettings()
     if (on && !isOverlayVisible()) showParkIcon()
-    if (!on) hideParkIcon()
+    if (!on) closeParkIcon() // close, not hide — no idle renderer while disabled
     return effectiveSettings()
   })
 
   // Hotkey overlay channels.
   ipcMain.on('popover:ready', () => markRendererReady())
-  ipcMain.on('icon:mouse', (_event, evt) => onIconMouse(evt))
+  // Honored only from the icon's own page — a faked click from any other
+  // renderer would reach the synthesized ⌘C grab (same trust boundary as #39).
+  ipcMain.on('icon:mouse', (event, evt) => {
+    if (isIconSender(event.sender)) onIconMouse(evt)
+  })
   ipcMain.on('popover:resize', (_event, w, h) => resizeOverlay(w, h))
   ipcMain.on('popover:dismiss', () => hideOverlay())
   ipcMain.handle('clipboard:write', (_event, text) => clipboard.writeText(text ?? ''))

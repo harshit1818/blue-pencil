@@ -1,8 +1,9 @@
-import { BrowserWindow, screen } from 'electron'
+import { app, BrowserWindow, screen } from 'electron'
 import { join } from 'path'
 import { createGesture } from './icon-gesture.js'
-import { placeAtSlot, nearestSlot } from './overlay-slots.js'
-import { getSettings, getOverlaySlot, setOverlaySlot } from './settings.js'
+import { placeAtSlot } from './overlay-slots.js'
+import { snapToNearestSlot } from './slot-snap.js'
+import { getSettings, getOverlaySlot } from './settings.js'
 import { log } from './log.js'
 
 // The parked pencil icon: a tiny frameless non-activating always-on-top window
@@ -57,7 +58,7 @@ function create() {
 // Park at the shared slot. workArea defaults to wherever the icon already is,
 // so a fold from the overlay can pass that display's work area explicitly.
 export function showParkIcon(workArea) {
-  if (!getSettings().floatIcon) return
+  if (app.isQuitting || !getSettings().floatIcon) return // never resurrect mid-quit
   if (!win) create()
   const a = workArea || screen.getDisplayMatching(win.getBounds()).workArea
   const r = placeAtSlot(getOverlaySlot(), { width: ICON_SIZE, height: ICON_SIZE }, a)
@@ -67,6 +68,19 @@ export function showParkIcon(workArea) {
 
 export function hideParkIcon() {
   if (win && win.isVisible()) win.hide()
+}
+
+// Settings-off path: hide keeps a renderer process idling for the app's whole
+// lifetime, so close instead — showParkIcon lazily recreates on re-enable.
+export function closeParkIcon() {
+  if (win) win.close()
+}
+
+// icon:mouse must only be honored from the icon's own page — the preload
+// exposes iconMouse to every window, and a faked click reaches the synthesized
+// ⌘C grab (same trust boundary as ipc-guard.js / #39).
+export function isIconSender(sender) {
+  return Boolean(win) && sender === win.webContents
 }
 
 // icon:mouse IPC endpoint. The renderer is a dumb pipe; validate here (trust
@@ -85,13 +99,8 @@ export function onIconMouse(evt) {
     log('park icon clicked -> summon')
     onSummon?.()
   } else if (action.type === 'dragEnd') {
-    const b = win.getBounds()
-    const { workArea } = screen.getDisplayMatching(b)
-    const slot = nearestSlot(b, workArea)
-    if (slot !== getOverlaySlot()) setOverlaySlot(slot)
-    const r = placeAtSlot(slot, b, workArea)
-    win.setPosition(r.x, r.y)
-    log(`park icon snapped to ${slot}`)
+    const slot = snapToNearestSlot(win)
+    if (slot) log(`park icon snapped to ${slot}`)
   }
 }
 

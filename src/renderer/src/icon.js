@@ -2,12 +2,13 @@ import { color } from '@tokens'
 
 // The parked icon's page: the pencil badge (same visual as ghost-icon.js) plus
 // raw mouse forwarding. No gesture logic here — main's icon-gesture.js decides
-// click vs drag, so the renderer stays a dumb event pipe.
+// click vs drag, so the renderer stays a dumb event pipe. Pointer capture keeps
+// move/up arriving even when a fast drag outruns the window between IPC frames.
 
 const badge = document.createElement('div')
 badge.style.cssText = [
-  'width:100%',
-  'height:100%',
+  'width:100vw', // viewport units: the body has no explicit height, % would collapse
+  'height:100vh',
   'border-radius:50%',
   `background:${color.light.pencil}`,
   `color:${color.light.onPencil}`,
@@ -21,9 +22,16 @@ badge.style.cssText = [
 badge.textContent = '✎'
 document.body.appendChild(badge)
 
-const forward = (type) => (e) => window.api?.iconMouse?.({ type, x: e.screenX, y: e.screenY })
-window.addEventListener('mousedown', forward('down'))
-window.addEventListener('mousemove', (e) => {
-  if (e.buttons & 1) forward('move')(e)
+const forward = (type, e) => window.api?.iconMouse?.({ type, x: e.screenX, y: e.screenY })
+badge.addEventListener('pointerdown', (e) => {
+  if (e.button !== 0) return // left button only: right/middle must not summon
+  badge.setPointerCapture(e.pointerId)
+  forward('down', e)
 })
-window.addEventListener('mouseup', forward('up'))
+badge.addEventListener('pointermove', (e) => {
+  if (e.buttons & 1) forward('move', e)
+})
+badge.addEventListener('pointerup', (e) => {
+  if (e.button !== 0) return
+  forward('up', e)
+})
