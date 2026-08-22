@@ -20,10 +20,11 @@ import { qualifies } from './field-qualify.js'
 export const ICON_SIZE = 38
 export const INSET = { right: 14, bottom: 16 }
 // Hide-while-moving: an icon that chases a scroll always trails (AX frames lag
-// the pixels, the helper polls at 250ms) — so hide during motion and reappear
-// once the frame has been still this long. Must exceed the helper's 250ms poll
-// or the icon flickers back between scroll polls.
-export const SETTLE_MS = 400
+// the pixels, the helper polls the frame) — so hide during motion and reappear
+// once the frame has been still this long. Must exceed the helper's poll
+// interval or the icon flickers back between scroll polls; the ordering is
+// contract-tested against the Swift constant in test/ax-probe.test.mjs.
+export const SETTLE_MS = 200
 
 function validRect(r) {
   return Boolean(

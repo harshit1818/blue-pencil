@@ -110,7 +110,9 @@ test('motion hides the icon immediately; it reappears where the field settled', 
 test('a continuous scroll at the helper poll cadence never flickers the icon back', () => {
   const f = createIconFollower({ settleMs: 400 })
   f.event(focus(), 0)
-  // helper polls every 250ms — settle must outlast the gap between polls
+  // the helper polls the frame — settle must outlast the gap between polls
+  // (settleMs 400 vs a 250ms cadence here; the real constants' ordering is
+  // contract-tested in ax-probe.test.mjs)
   for (const t of [250, 500, 750, 1000]) {
     f.event(bounds({ ...field, y: 100 - t / 10 }), t)
     assert.equal(f.tick(t + 300), null, `icon must stay hidden mid-scroll at t=${t}`)

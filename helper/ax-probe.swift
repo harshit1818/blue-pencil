@@ -321,8 +321,10 @@ Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { _ in
 // In-page scrolling moves the focused element with NO AX notification (moved/
 // resized fire for window changes only) — poll the frame and emit bounds on
 // change. The moved/resized observers stay for the crisp window-drag path.
-// ponytail: 250ms flat poll; event-driven if AX ever grows a scroll notification.
-Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { _ in
+// 100ms so motion-end (scroll stop, Space-slide finish) is detected fast — the
+// consumer's settle window sits just above this (contract-tested ordering).
+// ponytail: flat poll; event-driven if AX ever grows a scroll notification.
+Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
   guard let el = currentElement, let f = rect(of: el) else { return }
   if f != lastPolledFrame { emitBounds(f) }
 }
