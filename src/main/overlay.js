@@ -1,6 +1,7 @@
 import { BrowserWindow, screen } from 'electron'
 import { join } from 'path'
 import { restoreClipboardIfPending } from './automation.js'
+import { applyResize } from './overlay-clamp.js'
 import { log } from './log.js'
 
 // A single reused, frameless, transparent, always-on-top popover window shown
@@ -134,7 +135,7 @@ export function suppressOverlayBlurDismiss() {
 }
 
 export function resizeOverlay(w, h) {
-  if (win) win.setContentSize(Math.max(1, Math.round(w)), Math.max(1, Math.round(h)))
+  if (win) applyResize(win, { width: w, height: h }, screen.getAllDisplays())
 }
 
 export function isOverlayVisible() {
