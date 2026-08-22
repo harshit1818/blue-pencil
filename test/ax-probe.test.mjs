@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
 import { createNdjsonParser } from '../src/main/ndjson.js'
 import { qualifies, SECURE_ROLES } from '../src/main/field-qualify.js'
+import { SETTLE_MS } from '../src/main/icon-anchor.js'
 
 const swiftPath = fileURLToPath(new URL('../helper/ax-probe.swift', import.meta.url))
 const src = readFileSync(swiftPath, 'utf8')
@@ -108,6 +109,14 @@ test('a sub-second frame poll emits bounds for scroll moves AX never notifies', 
   const m = src.match(/withTimeInterval:\s*(0\.\d+),\s*repeats:\s*true[\s\S]*?lastPolledFrame[\s\S]*?emitBounds\(/)
   assert.ok(m, 'frame-poll timer comparing lastPolledFrame and emitting bounds not found')
   assert.ok(Number(m[1]) < 1, 'poll must be sub-second to feel attached while scrolling')
+  // Cross-language invariant: the JS settle window must outlast the gap
+  // between two scroll polls, or the icon flickers back mid-scroll — the
+  // exact bug SETTLE_MS exists to prevent. Enforced here because neither
+  // side's own tests can see the other's constant.
+  assert.ok(
+    Number(m[1]) * 1000 < SETTLE_MS,
+    `helper poll (${m[1]}s) must be shorter than SETTLE_MS (${SETTLE_MS}ms)`
+  )
 })
 
 test('the AX poke is denylist-gated, ownership-aware, and reverted on exit', () => {
