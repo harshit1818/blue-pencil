@@ -50,6 +50,9 @@ function create() {
   win.setAlwaysOnTop(true, 'screen-saver') // sit above fullscreen content (R5)
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
   win.webContents.on('input-event', (_e, input) => {
+    // Electron's InputEvent carries no button, so any release on the icon
+    // summons — unlike the parked icon, whose renderer can filter to the left
+    // button. On a 38px badge a right-click opening the panel is harmless.
     if (input.type !== 'mouseUp' || !onClick) return
     const anchor = win.getBounds()
     win.hide() // the panel is this icon, unfolded — never both at once
