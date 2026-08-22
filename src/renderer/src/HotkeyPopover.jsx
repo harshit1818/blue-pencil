@@ -241,15 +241,30 @@ export default function HotkeyPopover() {
       `}</style>
 
       {!captured.trim() ? (
-        <div style={{ padding: 16, font: `400 13px ${font.grotesk}`, color: C.muted }}>
+        <div
+          style={{
+            padding: 16,
+            font: `400 13px ${font.grotesk}`,
+            color: C.muted,
+            WebkitAppRegion: 'drag'
+          }}
+        >
           {accessibility
             ? `Select text, then press ${HOTKEY_LABEL}.`
             : `Copy text (⌘C), then press ${HOTKEY_LABEL}.`}
         </div>
       ) : (
         <>
-          {/* read-only preview of the grabbed text — rendered when it's a rich (Markdown) grab */}
-          <div style={{ padding: '11px 14px', borderBottom: `1px solid ${C.line}`, background: C.paper }}>
+          {/* read-only preview of the grabbed text — rendered when it's a rich (Markdown) grab.
+              Also the drag handle: overlay-only (not shared ActionPanel), no buttons inside. */}
+          <div
+            style={{
+              padding: '11px 14px',
+              borderBottom: `1px solid ${C.line}`,
+              background: C.paper,
+              WebkitAppRegion: 'drag'
+            }}
+          >
             {capturedMarkdown ? (
               <div style={{ maxHeight: 72, overflow: 'hidden' }}>
                 <Markdown source={captured} />

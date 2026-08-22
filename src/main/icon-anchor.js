@@ -1,5 +1,5 @@
 // Pure ghost-icon geometry + follow state — no electron imports, so it loads
-// under plain `node --test` (same pattern as overlay-clamp.js). The F4 icon
+// under plain `node --test` (same pattern as window-bounds.js). The F4 icon
 // window (ghost-icon.js) executes the actions; this decides WHERE and WHEN.
 //
 // Geometry (docs/phase3/anchored-icon.md §Geometry): anchor rect = element
