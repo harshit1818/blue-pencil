@@ -133,6 +133,7 @@ test('anchored placement respects a second display work area', () => {
 test('overlay.js places and sizes only through the slot helpers', () => {
   const src = readFileSync(new URL('../src/main/overlay.js', import.meta.url), 'utf8')
   assert.match(src, /placeAtSlot\(/, 'placement must route through placeAtSlot (work-area cap)')
+  assert.match(src, /placeNearRect\(/, 'the field-anchored path must route through placeNearRect')
   assert.equal(
     (src.match(/win\.setContentSize\(/g) || []).length,
     1,

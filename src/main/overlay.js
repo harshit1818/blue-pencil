@@ -1,7 +1,7 @@
 import { BrowserWindow, screen } from 'electron'
 import { join } from 'path'
 import { restoreClipboardIfPending } from './automation.js'
-import { placeAtSlot } from './overlay-slots.js'
+import { placeAtSlot, placeNearRect } from './overlay-slots.js'
 import { snapToNearestSlot } from './slot-snap.js'
 import { getOverlaySlot } from './settings.js'
 import { showParkIcon, hideParkIcon } from './park-icon.js'
@@ -19,6 +19,8 @@ let blurDismissSuppressed = false // held up on purpose during the accessibility
 let pendingText = null // text captured for a summon not yet delivered to the renderer
 let pendingAccessibility = false // whether that summon's grab was the auto (v1) path
 let pendingMarkdown = false // whether the captured text is Markdown (rich grab — Case 1)
+let pendingAnchor = null // icon rect this summon unfolds from, if it came from the field icon
+let fieldAnchor = null // that rect for the panel currently shown (resize re-places against it)
 
 function create() {
   rendererReady = false
@@ -53,6 +55,7 @@ function create() {
     win = null
     rendererReady = false
     pendingText = null
+    fieldAnchor = null
     // A destroyed panel (renderer crash, dev tooling) must not strand the icon
     // hidden — every panel-gone path ends with the icon back (or a no-op mid-quit).
     showParkIcon()
@@ -89,11 +92,14 @@ function create() {
   return win
 }
 
-// Place at the remembered slot on the given work area. Placement is a pure
-// function of (slot, size, workArea): a summon with last summon's stale size is
+// Place on the given work area: unfolded from the field icon when this summon
+// came from it, else at the remembered slot. Placement is a pure function of
+// (anchor-or-slot, size, workArea): a summon with last summon's stale size is
 // corrected by the first popover:resize without the pinned corner moving (#8).
-function positionAtSlot(workArea, width, height) {
-  const r = placeAtSlot(getOverlaySlot(), { width, height }, workArea)
+function position(workArea, width, height) {
+  const r = fieldAnchor
+    ? placeNearRect(fieldAnchor, { width, height }, workArea)
+    : placeAtSlot(getOverlaySlot(), { width, height }, workArea)
   win.setContentSize(r.width, r.height)
   win.setPosition(r.x, r.y)
   return r
@@ -108,11 +114,16 @@ function flush() {
   const accessibility = pendingAccessibility
   const markdown = pendingMarkdown
   pendingText = null
-  // Summon on the display the user is working on (cursor is the best proxy);
-  // the slot name re-resolves against that display's work area.
-  const { workArea } = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
+  fieldAnchor = pendingAnchor
+  pendingAnchor = null
+  // Summon on the display the user is working on — the icon's own display when
+  // unfolding from the field, else the cursor's (the best proxy). The slot name
+  // or anchor re-resolves against that display's work area.
+  const { workArea } = fieldAnchor
+    ? screen.getDisplayMatching(fieldAnchor)
+    : screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
   const [w, h] = win.getContentSize()
-  positionAtSlot(workArea, w, h)
+  position(workArea, w, h)
   hideParkIcon() // the panel is the icon, unfolded — never both at once
   win.webContents.send('popover:show', { text, accessibility, markdown })
   // showInactive() shows without activating the app, so summoning the overlay
@@ -131,13 +142,15 @@ export function markRendererReady() {
   flush()
 }
 
-export function showOverlayAtCursor(text, accessibility, markdown) {
-  log(`showOverlayAtCursor (winExists=${Boolean(win)}, rendererReady=${rendererReady})`)
+// anchor: the field icon's rect when the summon came from it (#57), else unset.
+export function showOverlayAtCursor(text, accessibility, markdown, anchor) {
+  log(`showOverlayAtCursor (winExists=${Boolean(win)}, anchored=${Boolean(anchor)}, rendererReady=${rendererReady})`)
   blurDismissSuppressed = false // a fresh summon resumes normal blur-to-dismiss
   if (!win) create()
   pendingText = text
   pendingAccessibility = Boolean(accessibility)
   pendingMarkdown = Boolean(markdown)
+  pendingAnchor = anchor || null
   flush() // sends now if the renderer is ready; otherwise markRendererReady() will
 }
 
@@ -147,8 +160,13 @@ export function hideOverlay() {
   if (alive && win.isVisible()) win.hide()
   // A grab that was never pasted should leave the user's clipboard as it was.
   restoreClipboardIfPending()
-  // Fold back to the parked icon on the display the panel was on (no-op mid-quit).
-  showParkIcon(alive ? screen.getDisplayMatching(win.getBounds()).workArea : undefined)
+  const unfolded = fieldAnchor
+  fieldAnchor = null
+  // Fold back to the parked icon on the display the panel was on (no-op
+  // mid-quit) — but not when the panel came from the field icon: that icon
+  // returns on its own once the target app is frontmost again, and two pencils
+  // at once is exactly the confusion the field anchor is meant to remove.
+  if (!unfolded) showParkIcon(alive ? screen.getDisplayMatching(win.getBounds()).workArea : undefined)
 }
 
 // Called (over IPC) when the user starts the accessibility-enable flow: opening
@@ -163,7 +181,7 @@ export function suppressOverlayBlurDismiss() {
 export function resizeOverlay(w, h) {
   if (!win) return
   const { workArea } = screen.getDisplayMatching(win.getBounds())
-  positionAtSlot(workArea, w, h)
+  position(workArea, w, h)
 }
 
 export function isOverlayVisible() {
