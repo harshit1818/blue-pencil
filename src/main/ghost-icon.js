@@ -1,6 +1,6 @@
 import { BrowserWindow } from 'electron'
 import { color } from '@tokens'
-import { createIconFollower, ICON_SIZE, THROTTLE_MS } from './icon-anchor.js'
+import { createIconFollower, ICON_SIZE, SETTLE_MS } from './icon-anchor.js'
 import { getSettings } from './settings.js'
 
 // The F4 ghost icon: a tiny frameless non-activating always-on-top window that
@@ -63,10 +63,11 @@ function run(action) {
 
 export function onHelperEvent(evt) {
   run(follower.event(evt, Date.now()))
-  // One deferred flush per burst covers the trailing reposition; the follower
-  // returns null from tick() when nothing is pending.
+  // One deferred tick per burst, at the settle window: each new event pushes
+  // it back, so it fires once the field has been still for SETTLE_MS. The
+  // follower returns null from tick() when nothing is pending.
   clearTimeout(timer)
-  timer = setTimeout(() => run(follower.tick(Date.now())), THROTTLE_MS)
+  timer = setTimeout(() => run(follower.tick(Date.now())), SETTLE_MS + 10)
 }
 
 export function destroyGhostIcon() {

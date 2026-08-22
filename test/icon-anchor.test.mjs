@@ -67,7 +67,7 @@ test('garbage frames yield no position', () => {
 
 test('qualifying focus places the icon immediately', () => {
   const f = createIconFollower()
-  const a = f.event(focus(), 0)
+  const a = /** @type {any} */ (f.event(focus(), 0))
   assert.equal(a.type, 'place')
   assert.equal(a.x, 100 + 400 - 14 - ICON_SIZE)
 })
@@ -94,46 +94,64 @@ test('user denylist from settings is honored', () => {
   assert.deepEqual(f.event(focus(), 0), { type: 'hide' })
 })
 
-test('bounds bursts are throttled with a trailing move carrying the latest frame (R4)', () => {
-  const f = createIconFollower({ throttleMs: 40 })
+test('motion hides the icon immediately; it reappears where the field settled', () => {
+  const f = createIconFollower({ settleMs: 400 })
   f.event(focus(), 0)
-  const mid = { ...field, x: 110 }
-  const last = { ...field, x: 120 }
-  assert.equal(f.event(bounds(mid), 10), null) // inside the window — deferred
-  assert.equal(f.event(bounds(last), 20), null)
-  assert.equal(f.tick(30), null) // window not yet elapsed
-  const trailing = f.tick(45)
-  assert.equal(trailing.type, 'place')
-  assert.equal(trailing.x, 120 + 400 - 14 - ICON_SIZE) // latest frame wins
-  // next event after the window passes through immediately (leading edge)
-  const a = f.event(bounds({ ...field, x: 130 }), 200)
-  assert.equal(a.type, 'place')
-  assert.equal(f.tick(300), null) // nothing left pending
+  // a moving field never shows a chasing icon — hide on the first bounds
+  assert.deepEqual(f.event(bounds({ ...field, x: 110 }), 100), { type: 'hide' })
+  assert.deepEqual(f.event(bounds({ ...field, x: 120 }), 350), { type: 'hide' })
+  assert.equal(f.tick(700), null) // 350ms since last move — not settled yet
+  const settled = /** @type {any} */ (f.tick(750))
+  assert.equal(settled.type, 'place')
+  assert.equal(settled.x, 120 + 400 - 14 - ICON_SIZE) // final frame, not any mid-scroll one
+  assert.equal(f.tick(1200), null) // shown once, nothing left pending
 })
 
-test('bounds scrolling the field out of view hides the icon', () => {
-  const f = createIconFollower({ throttleMs: 40 })
+test('a continuous scroll at the helper poll cadence never flickers the icon back', () => {
+  const f = createIconFollower({ settleMs: 400 })
   f.event(focus(), 0)
-  const a = f.event(bounds({ ...field, y: -500 }), 100)
-  assert.deepEqual(a, { type: 'hide' })
+  // helper polls every 250ms — settle must outlast the gap between polls
+  for (const t of [250, 500, 750, 1000]) {
+    f.event(bounds({ ...field, y: 100 - t / 10 }), t)
+    assert.equal(f.tick(t + 300), null, `icon must stay hidden mid-scroll at t=${t}`)
+  }
+  assert.equal(f.tick(1000 + 400).type, 'place')
 })
 
-test('blur hides immediately, even mid-throttle, and drops the pending move', () => {
-  const f = createIconFollower({ throttleMs: 40 })
+test('a field that settles out of its window stays hidden (R4)', () => {
+  const f = createIconFollower({ settleMs: 400 })
   f.event(focus(), 0)
-  assert.equal(f.event(bounds({ ...field, x: 110 }), 10), null)
-  assert.deepEqual(f.event({ type: 'blur' }, 20), { type: 'hide' })
-  assert.equal(f.tick(100), null) // pending move must not resurrect the icon
-  assert.equal(f.event(bounds(field), 200), null) // no longer anchored
+  f.event(bounds({ ...field, y: -500 }), 100)
+  assert.deepEqual(f.tick(600), { type: 'hide' })
 })
 
-test('a fresh focus is never throttled by the previous element’s churn', () => {
-  const f = createIconFollower({ throttleMs: 40 })
+test('an app switch hides instantly, before any focus resolves (axEnable)', () => {
+  const f = createIconFollower({ settleMs: 400 })
+  f.event(focus(), 0)
+  assert.deepEqual(f.event({ type: 'axEnable', bundleId: 'com.apple.finder', method: 'none' }, 50), {
+    type: 'hide'
+  })
+  assert.equal(f.event(bounds(field), 100), null) // no longer anchored
+  assert.equal(f.tick(1000), null) // and nothing pending resurrects it
+})
+
+test('blur mid-motion cancels the pending reappearance', () => {
+  const f = createIconFollower({ settleMs: 400 })
   f.event(focus(), 0)
   f.event(bounds({ ...field, x: 110 }), 10)
-  const a = f.event(focus({ ...field, x: 300 }), 15)
+  assert.deepEqual(f.event({ type: 'blur' }, 20), { type: 'hide' })
+  assert.equal(f.tick(1000), null)
+  assert.equal(f.event(bounds(field), 1100), null) // no longer anchored
+})
+
+test('a fresh focus mid-motion places immediately and drops the stale pending frame', () => {
+  const f = createIconFollower({ settleMs: 400 })
+  f.event(focus(), 0)
+  f.event(bounds({ ...field, x: 110 }), 10)
+  const a = /** @type {any} */ (f.event(focus({ ...field, x: 300 }), 15))
   assert.equal(a.type, 'place')
   assert.equal(a.x, 300 + 400 - 14 - ICON_SIZE)
+  assert.equal(f.tick(1000), null) // the old element's motion never resurfaces
 })
 
 test('unknown or malformed events are ignored', () => {

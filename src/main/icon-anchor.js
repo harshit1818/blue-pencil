@@ -19,7 +19,11 @@ import { qualifies } from './field-qualify.js'
 
 export const ICON_SIZE = 38
 export const INSET = { right: 14, bottom: 16 }
-export const THROTTLE_MS = 40
+// Hide-while-moving: an icon that chases a scroll always trails (AX frames lag
+// the pixels, the helper polls at 250ms) — so hide during motion and reappear
+// once the frame has been still this long. Must exceed the helper's 250ms poll
+// or the icon flickers back between scroll polls.
+export const SETTLE_MS = 400
 
 function validRect(r) {
   return Boolean(
@@ -55,20 +59,10 @@ export function iconPosition(frame, windowFrame, size = ICON_SIZE) {
   return { x: Math.round(x), y: Math.round(y) }
 }
 
-export function createIconFollower({ throttleMs = THROTTLE_MS, settings = () => ({}) } = {}) {
+export function createIconFollower({ settleMs = SETTLE_MS, settings = () => ({}) } = {}) {
   let anchored = false // a qualifying element currently has focus
   let lastMoveAt = -Infinity
-  let pending = null // deferred trailing action during the throttle window
-
-  const throttled = (action, now) => {
-    if (now - lastMoveAt >= throttleMs) {
-      lastMoveAt = now
-      pending = null
-      return action
-    }
-    pending = action
-    return null
-  }
+  let pending = null // latest {frame, windowFrame} awaiting the settle window
 
   return {
     // A helper event arrived; returns the action to perform now (or null).
@@ -79,7 +73,6 @@ export function createIconFollower({ throttleMs = THROTTLE_MS, settings = () => 
       const frame = { x: evt.x, y: evt.y, width: evt.width, height: evt.height }
       if (evt.type === 'focus') {
         pending = null
-        lastMoveAt = -Infinity // a fresh anchor always places immediately
         // R2 belt-and-braces: honor the helper's secure flag even before the
         // role check — a secure field never anchors, whatever its role string.
         anchored =
@@ -90,27 +83,31 @@ export function createIconFollower({ throttleMs = THROTTLE_MS, settings = () => 
           )
         if (!anchored) return { type: 'hide' }
         const pos = iconPosition(frame, evt.windowFrame)
-        return throttled(pos ? { type: 'place', ...pos } : { type: 'hide' }, now)
+        return pos ? { type: 'place', ...pos } : { type: 'hide' }
       }
       if (evt.type === 'bounds') {
         if (!anchored) return null
-        const pos = iconPosition(frame, evt.windowFrame)
-        return throttled(pos ? { type: 'place', ...pos } : { type: 'hide' }, now)
+        // In motion: hide now, remember only the latest frame for the settle.
+        lastMoveAt = now
+        pending = { frame, windowFrame: evt.windowFrame }
+        return { type: 'hide' }
       }
-      if (evt.type === 'blur') {
+      // axEnable fires the instant another app activates — hide before its
+      // (possibly slow) focus resolution, so the icon never lingers over it.
+      if (evt.type === 'blur' || evt.type === 'axEnable') {
         anchored = false
         pending = null
         return { type: 'hide' }
       }
       return null
     },
-    // Clock tick: flush the trailing deferred action (trailing during drags, R4).
+    // Clock tick: reappear at the final position once motion has settled.
     tick(now) {
-      if (!pending || now - lastMoveAt < throttleMs) return null
-      lastMoveAt = now
-      const action = pending
+      if (!pending || now - lastMoveAt < settleMs) return null
+      const { frame, windowFrame } = pending
       pending = null
-      return action
+      const pos = iconPosition(frame, windowFrame)
+      return pos ? { type: 'place', ...pos } : { type: 'hide' }
     }
   }
 }
