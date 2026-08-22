@@ -7,6 +7,7 @@
   "main": "./out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
+    "helper:build": "xcrun swiftc -O -o helper/ax-probe helper/ax-probe.swift",
     "test": "node --test test/",
     "typecheck": "tsc -p tsconfig.json",
     "lint": "eslint .",

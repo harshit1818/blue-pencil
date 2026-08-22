@@ -22,14 +22,28 @@ import {
   pasteBack,
   writeResultToClipboard,
   requestAccessibility,
+  isAccessibilityGranted,
   openAccessibilitySettings,
   relaunchApp
 } from './automation.js'
+import { createHelperDriver } from './helper-driver.js'
+import { onHelperEvent, destroyGhostIcon } from './ghost-icon.js'
 
 const HOTKEY_LABEL = "⌘⇧'"
 
 let mainWindow = null
 let tray = null
+
+// F2b (#78): the AX helper feeding the ghost icon. Dev runs the repo build
+// (`npm run helper:build`); the packaged app ships it in Resources. A missing
+// binary or grant means start() quietly refuses — no icon, nothing else (R12/R13).
+const helperDriver = createHelperDriver({
+  binaryPath: app.isPackaged
+    ? join(process.resourcesPath, 'ax-probe')
+    : join(app.getAppPath(), 'helper/ax-probe'),
+  isTrusted: () => process.platform === 'darwin' && isAccessibilityGranted()
+})
+helperDriver.subscribe(onHelperEvent)
 
 // Shared definition of "our own page" for the navigation guard (#37) and the
 // sensitive-IPC guard (#39).
@@ -235,6 +249,7 @@ app.whenReady().then(async () => {
   createTray(hotkeyOk)
   createWindow() // created hidden; summoned via the tray or by being needed
   initParkIcon(summon) // parked pencil icon — click summons without the hotkey
+  helperDriver.start()
 
   nativeTheme.on('updated', () => mainWindow?.setBackgroundColor(paperFor()))
 
@@ -256,4 +271,8 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
 })
 
-app.on('will-quit', unregisterHotkey)
+app.on('will-quit', () => {
+  unregisterHotkey()
+  helperDriver.stop()
+  destroyGhostIcon()
+})
