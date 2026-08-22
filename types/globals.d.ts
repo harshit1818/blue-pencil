@@ -9,9 +9,11 @@ export interface Api {
   getSettings(): Promise<any>
   setProvider(id: string): Promise<any>
   setModel(id: string, model: string): Promise<any>
+  setFloatIcon(on: boolean): Promise<any>
   onSettingsChanged(cb: (settings: any) => void): () => void
   onPopoverShow(cb: (payload: any) => void): () => void
   popoverReady(): void
+  iconMouse(evt: { type: string; x: number; y: number }): void
   popoverResize(w: number, h: number): void
   popoverDismiss(): void
   clipboardWrite(text: string): Promise<any>

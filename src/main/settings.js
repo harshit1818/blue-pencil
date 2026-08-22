@@ -10,7 +10,7 @@ import { normalizeSlot } from './overlay-slots.js'
 // carries only the active provider id and per-provider model strings.
 //
 // shape: { provider: string | null, models: { [providerId]: string }, denylist: string[],
-//          overlaySlot: string }
+//          overlaySlot: string, floatIcon: boolean }
 // denylist holds only the USER's extra bundle ids; the built-in defaults live in
 // field-qualify.js and are merged at qualify time, never persisted here.
 
@@ -28,10 +28,11 @@ function load() {
       provider: typeof raw.provider === 'string' ? raw.provider : null,
       models: raw.models && typeof raw.models === 'object' ? raw.models : {},
       denylist: normalizeDenylist(raw.denylist),
-      overlaySlot: normalizeSlot(raw.overlaySlot)
+      overlaySlot: normalizeSlot(raw.overlaySlot),
+      floatIcon: raw.floatIcon !== false // default on
     }
   } catch {
-    cache = { provider: null, models: {}, denylist: [], overlaySlot: normalizeSlot() }
+    cache = { provider: null, models: {}, denylist: [], overlaySlot: normalizeSlot(), floatIcon: true }
   }
   return cache
 }
@@ -68,6 +69,11 @@ export function getOverlaySlot() {
 
 export function setOverlaySlot(slot) {
   persist({ ...load(), overlaySlot: normalizeSlot(slot) })
+  return cache
+}
+
+export function setFloatIcon(on) {
+  persist({ ...load(), floatIcon: Boolean(on) })
   return cache
 }
 

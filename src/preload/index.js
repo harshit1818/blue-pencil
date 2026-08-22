@@ -10,6 +10,7 @@ const api = {
   getSettings: () => ipcRenderer.invoke('settings:get'),
   setProvider: (id) => ipcRenderer.invoke('settings:setProvider', id),
   setModel: (id, model) => ipcRenderer.invoke('settings:setModel', id, model),
+  setFloatIcon: (on) => ipcRenderer.invoke('settings:setFloatIcon', on),
   onSettingsChanged: (cb) => {
     const h = (_e, s) => cb(s)
     ipcRenderer.on('settings:changed', h)
@@ -22,6 +23,8 @@ const api = {
     return () => ipcRenderer.removeListener('popover:show', h)
   },
   popoverReady: () => ipcRenderer.send('popover:ready'),
+  // Parked icon (used by icon.html's renderer; harmless elsewhere).
+  iconMouse: (evt) => ipcRenderer.send('icon:mouse', evt),
   popoverResize: (w, h) => ipcRenderer.send('popover:resize', w, h),
   popoverDismiss: () => ipcRenderer.send('popover:dismiss'),
   clipboardWrite: (text) => ipcRenderer.invoke('clipboard:write', text),

@@ -7,9 +7,10 @@ import { validBounds } from './window-bounds.js'
 import { installNavigationGuards } from './navigation-guard.js'
 import { guardSensitiveIpc } from './ipc-guard.js'
 import { listProviders, effectiveSettings, isValidProvider } from './providers.js'
-import { setProviderId, setModelId } from './settings.js'
+import { setProviderId, setModelId, setFloatIcon } from './settings.js'
 import { hasApiKey, setApiKey, seedFromEnv } from './keychain.js'
-import { registerHotkey, unregisterHotkey } from './hotkey.js'
+import { registerHotkey, unregisterHotkey, summon } from './hotkey.js'
+import { initParkIcon, onIconMouse, showParkIcon, closeParkIcon, isIconSender } from './park-icon.js'
 import {
   resizeOverlay,
   hideOverlay,
@@ -190,9 +191,21 @@ app.whenReady().then(async () => {
     }
     return effectiveSettings()
   })
+  ipcMain.handle('settings:setFloatIcon', (_event, on) => {
+    setFloatIcon(on)
+    broadcastSettings()
+    if (on && !isOverlayVisible()) showParkIcon()
+    if (!on) closeParkIcon() // close, not hide — no idle renderer while disabled
+    return effectiveSettings()
+  })
 
   // Hotkey overlay channels.
   ipcMain.on('popover:ready', () => markRendererReady())
+  // Honored only from the icon's own page — a faked click from any other
+  // renderer would reach the synthesized ⌘C grab (same trust boundary as #39).
+  ipcMain.on('icon:mouse', (event, evt) => {
+    if (isIconSender(event.sender)) onIconMouse(evt)
+  })
   ipcMain.on('popover:resize', (_event, w, h) => resizeOverlay(w, h))
   ipcMain.on('popover:dismiss', () => hideOverlay())
   ipcMain.handle('clipboard:write', (_event, text) => clipboard.writeText(text ?? ''))
@@ -221,6 +234,7 @@ app.whenReady().then(async () => {
   const hotkeyOk = registerHotkey()
   createTray(hotkeyOk)
   createWindow() // created hidden; summoned via the tray or by being needed
+  initParkIcon(summon) // parked pencil icon — click summons without the hotkey
 
   nativeTheme.on('updated', () => mainWindow?.setBackgroundColor(paperFor()))
 

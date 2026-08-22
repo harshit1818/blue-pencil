@@ -1,8 +1,10 @@
 import { BrowserWindow, screen } from 'electron'
 import { join } from 'path'
 import { restoreClipboardIfPending } from './automation.js'
-import { placeAtSlot, nearestSlot } from './overlay-slots.js'
-import { getOverlaySlot, setOverlaySlot } from './settings.js'
+import { placeAtSlot } from './overlay-slots.js'
+import { snapToNearestSlot } from './slot-snap.js'
+import { getOverlaySlot } from './settings.js'
+import { showParkIcon, hideParkIcon } from './park-icon.js'
 import { log } from './log.js'
 
 // A single reused, frameless, transparent, always-on-top popover window shown
@@ -51,6 +53,9 @@ function create() {
     win = null
     rendererReady = false
     pendingText = null
+    // A destroyed panel (renderer crash, dev tooling) must not strand the icon
+    // hidden — every panel-gone path ends with the icon back (or a no-op mid-quit).
+    showParkIcon()
   })
   // A webContents reload (crash recovery, dev HMR, DevTools ⌘R) detaches the
   // renderer's listeners, so readiness must track the load lifecycle, not just
@@ -70,16 +75,9 @@ function create() {
   win.on('moved', () => {
     clearTimeout(snapTimer)
     snapTimer = setTimeout(() => {
-      if (!win || !win.isVisible()) return
-      const b = win.getBounds()
-      const { workArea } = screen.getDisplayMatching(b)
-      const slot = nearestSlot(b, workArea)
-      if (slot !== getOverlaySlot()) setOverlaySlot(slot)
-      const r = placeAtSlot(slot, b, workArea)
-      if (r.x !== b.x || r.y !== b.y) {
-        win.setPosition(r.x, r.y)
-        log(`snapped to ${slot} at (${r.x},${r.y})`)
-      }
+      if (!win || win.isDestroyed() || !win.isVisible()) return
+      const slot = snapToNearestSlot(win)
+      if (slot) log(`snapped to ${slot}`)
     }, 200)
   })
 
@@ -115,6 +113,7 @@ function flush() {
   const { workArea } = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
   const [w, h] = win.getContentSize()
   positionAtSlot(workArea, w, h)
+  hideParkIcon() // the panel is the icon, unfolded — never both at once
   win.webContents.send('popover:show', { text, accessibility, markdown })
   // showInactive() shows without activating the app, so summoning the overlay
   // doesn't pull the active Space to another display (the "opens on the other
@@ -144,9 +143,12 @@ export function showOverlayAtCursor(text, accessibility, markdown) {
 
 export function hideOverlay() {
   blurDismissSuppressed = false // Escape / toggle / paste-back is an explicit dismiss
-  if (win && win.isVisible()) win.hide()
+  const alive = win && !win.isDestroyed() // blur can fire mid-teardown on quit
+  if (alive && win.isVisible()) win.hide()
   // A grab that was never pasted should leave the user's clipboard as it was.
   restoreClipboardIfPending()
+  // Fold back to the parked icon on the display the panel was on (no-op mid-quit).
+  showParkIcon(alive ? screen.getDisplayMatching(win.getBounds()).workArea : undefined)
 }
 
 // Called (over IPC) when the user starts the accessibility-enable flow: opening
