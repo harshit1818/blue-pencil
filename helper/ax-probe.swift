@@ -5,8 +5,9 @@
 // Run:    ./ax-probe          (needs the Accessibility grant; prompts nothing itself)
 //
 // stdout — one JSON event per line (NDJSON), all with a ts (ms epoch):
-//   {"type":"focus","bundleId","pid","role","subrole","secure","x","y","width","height","elementId"}
-//   {"type":"bounds","elementId","x","y","width","height"}   element/window moved or resized
+//   {"type":"focus","bundleId","pid","role","subrole","secure","x","y","width","height","elementId","windowFrame"}
+//   {"type":"bounds","elementId","x","y","width","height","windowFrame"}   element/window moved or resized
+//   (windowFrame = the owning window's {x,y,width,height}, {} when unresolvable)
 //   {"type":"blur"}                                          no focused element
 //   {"type":"heartbeat"}                                     every 3s (liveness)
 //   {"type":"axEnable","bundleId","method":"manual"|"enhanced"|"none"}  Chromium AX-tree poke outcome
@@ -76,6 +77,19 @@ func isSecure(_ role: String, _ subrole: String) -> Bool {
   secureRoles.contains(role) || secureRoles.contains(subrole)
 }
 
+func frameDict(_ f: CGRect) -> [String: Any] {
+  ["x": Double(f.origin.x), "y": Double(f.origin.y),
+   "width": Double(f.size.width), "height": Double(f.size.height)]
+}
+
+// The owning window's rect, for the consumer's visible-portion clamp (R4).
+// Empty when the window can't be resolved — consumers fall back to the
+// element rect alone.
+func windowFrame(of el: AXUIElement) -> [String: Any] {
+  guard let win = elementAttr(el, kAXWindowAttribute), let f = rect(of: win) else { return [:] }
+  return frameDict(f)
+}
+
 func watch(_ el: AXUIElement, _ notification: String) {
   guard let o = observer else { return }
   if AXObserverAddNotification(o, el, notification as CFString, nil) == .success {
@@ -115,7 +129,8 @@ func emitFocus(_ el: AXUIElement) {
     "y": Double(f.origin.y),
     "width": Double(f.size.width),
     "height": Double(f.size.height),
-    "elementId": currentElementId
+    "elementId": currentElementId,
+    "windowFrame": windowFrame(of: el)
   ])
 }
 
@@ -127,7 +142,8 @@ func emitBounds() {
     "x": Double(f.origin.x),
     "y": Double(f.origin.y),
     "width": Double(f.size.width),
-    "height": Double(f.size.height)
+    "height": Double(f.size.height),
+    "windowFrame": windowFrame(of: el)
   ])
 }
 

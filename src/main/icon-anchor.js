@@ -74,25 +74,27 @@ export function createIconFollower({ throttleMs = THROTTLE_MS, settings = () => 
     // A helper event arrived; returns the action to perform now (or null).
     event(evt, now) {
       if (!evt || typeof evt !== 'object') return null
+      // Helper protocol carries the element rect as flat x/y/width/height on
+      // the event itself, and the owning window's rect as evt.windowFrame.
+      const frame = { x: evt.x, y: evt.y, width: evt.width, height: evt.height }
       if (evt.type === 'focus') {
         pending = null
         lastMoveAt = -Infinity // a fresh anchor always places immediately
-        const f = evt.frame || {}
         // R2 belt-and-braces: honor the helper's secure flag even before the
         // role check — a secure field never anchors, whatever its role string.
         anchored =
           !evt.secure &&
           qualifies(
-            { role: evt.role, subrole: evt.subrole, bundleId: evt.bundleId, width: f.width, height: f.height },
+            { role: evt.role, subrole: evt.subrole, bundleId: evt.bundleId, width: evt.width, height: evt.height },
             settings()
           )
         if (!anchored) return { type: 'hide' }
-        const pos = iconPosition(evt.frame, evt.windowFrame)
+        const pos = iconPosition(frame, evt.windowFrame)
         return throttled(pos ? { type: 'place', ...pos } : { type: 'hide' }, now)
       }
       if (evt.type === 'bounds') {
         if (!anchored) return null
-        const pos = iconPosition(evt.frame, evt.windowFrame)
+        const pos = iconPosition(frame, evt.windowFrame)
         return throttled(pos ? { type: 'place', ...pos } : { type: 'hide' }, now)
       }
       if (evt.type === 'blur') {

@@ -4,15 +4,21 @@ import { iconPosition, intersectRects, createIconFollower, ICON_SIZE } from '../
 
 const winFrame = { x: 0, y: 0, width: 1512, height: 945 }
 const field = { x: 100, y: 100, width: 400, height: 200 }
-const focus = (over = {}) => ({
+// Events use the REAL helper protocol: flat x/y/width/height on the event
+// itself plus a nested windowFrame rect (helper/ax-probe.swift
+// emitFocus/emitBounds) — no evt.frame object.
+const focus = (rect = field, over = {}) => ({
   type: 'focus',
   role: 'AXTextArea',
+  subrole: '',
   bundleId: 'com.tinyspeck.slackmacgap',
-  frame: field,
+  secure: false,
+  elementId: '1',
   windowFrame: winFrame,
+  ...rect,
   ...over
 })
-const bounds = (frame, over = {}) => ({ type: 'bounds', frame, windowFrame: winFrame, ...over })
+const bounds = (rect, over = {}) => ({ type: 'bounds', elementId: '1', windowFrame: winFrame, ...rect, ...over })
 
 // --- geometry ---
 
@@ -68,19 +74,19 @@ test('qualifying focus places the icon immediately', () => {
 
 test('secure field never shows the icon, by role or by flag (R2)', () => {
   const f = createIconFollower()
-  assert.deepEqual(f.event(focus({ role: 'AXSecureTextField' }), 0), { type: 'hide' })
+  assert.deepEqual(f.event(focus(field, { role: 'AXSecureTextField' }), 0), { type: 'hide' })
   // bounds for an unanchored element are ignored, not placed
   assert.equal(f.event(bounds(field), 100), null)
-  assert.deepEqual(f.event(focus({ secure: true }), 200), { type: 'hide' })
+  assert.deepEqual(f.event(focus(field, { secure: true }), 200), { type: 'hide' })
   assert.equal(f.event(bounds(field), 300), null)
 })
 
 test('denylisted app and non-qualifying field hide (R1, R3)', () => {
   const f = createIconFollower()
-  assert.deepEqual(f.event(focus({ bundleId: 'com.apple.Terminal' }), 0), { type: 'hide' })
-  assert.deepEqual(f.event(focus({ role: 'AXButton' }), 0), { type: 'hide' })
+  assert.deepEqual(f.event(focus(field, { bundleId: 'com.apple.Terminal' }), 0), { type: 'hide' })
+  assert.deepEqual(f.event(focus(field, { role: 'AXButton' }), 0), { type: 'hide' })
   const searchBar = { x: 0, y: 0, width: 200, height: 24 } // under the min-size heuristic
-  assert.deepEqual(f.event(focus({ frame: searchBar }), 0), { type: 'hide' })
+  assert.deepEqual(f.event(focus(searchBar), 0), { type: 'hide' })
 })
 
 test('user denylist from settings is honored', () => {
@@ -125,7 +131,7 @@ test('a fresh focus is never throttled by the previous element’s churn', () =>
   const f = createIconFollower({ throttleMs: 40 })
   f.event(focus(), 0)
   f.event(bounds({ ...field, x: 110 }), 10)
-  const a = f.event(focus({ frame: { ...field, x: 300 } }), 15)
+  const a = f.event(focus({ ...field, x: 300 }), 15)
   assert.equal(a.type, 'place')
   assert.equal(a.x, 300 + 400 - 14 - ICON_SIZE)
 })

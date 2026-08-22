@@ -26,9 +26,16 @@ test('focus payload carries every key qualifies() and the consumers need', () =>
   const start = src.indexOf('"type": "focus"')
   assert.ok(start > -1)
   const payload = src.slice(start, src.indexOf('])', start))
-  for (const key of ['bundleId', 'role', 'subrole', 'secure', 'x', 'y', 'width', 'height', 'elementId']) {
+  for (const key of ['bundleId', 'role', 'subrole', 'secure', 'x', 'y', 'width', 'height', 'elementId', 'windowFrame']) {
     assert.ok(payload.includes(`"${key}":`), `focus payload missing "${key}"`)
   }
+})
+
+test('bounds payload carries the owning window frame (R4 visible-portion clamp)', () => {
+  const start = src.indexOf('"type": "bounds"')
+  assert.ok(start > -1)
+  const payload = src.slice(start, src.indexOf('])', start))
+  assert.ok(payload.includes('"windowFrame":'), 'bounds payload missing "windowFrame"')
 })
 
 test('secure roles mirror field-qualify SECURE_ROLES', () => {
