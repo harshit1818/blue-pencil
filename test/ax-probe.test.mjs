@@ -106,7 +106,7 @@ test('a sub-second frame poll emits bounds for scroll moves AX never notifies', 
   // In-page scrolling relocates the focused element without any AX moved/
   // resized notification — only a poll catches it. Break the poll (remove it,
   // slow it past 1s, stop emitting) and this goes red.
-  const m = src.match(/withTimeInterval:\s*(0\.\d+),\s*repeats:\s*true[\s\S]*?lastPolledFrame[\s\S]*?emitBounds\(\)/)
+  const m = src.match(/withTimeInterval:\s*(0\.\d+),\s*repeats:\s*true[\s\S]*?lastPolledFrame[\s\S]*?emitBounds\(/)
   assert.ok(m, 'frame-poll timer comparing lastPolledFrame and emitting bounds not found')
   assert.ok(Number(m[1]) < 1, 'poll must be sub-second to feel attached while scrolling')
 })
