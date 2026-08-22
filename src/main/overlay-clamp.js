@@ -28,6 +28,31 @@ function displayForPoint(pt, displays) {
   return best
 }
 
+// Cap the size to the work area, then pull the top-left back so no edge escapes.
+function fitInside(a, x, y, w, h) {
+  const width = Math.min(Math.max(1, w), a.width)
+  const height = Math.min(Math.max(1, h), a.height)
+  return {
+    x: Math.round(Math.max(a.x, Math.min(x, a.x + a.width - width))),
+    y: Math.round(Math.max(a.y, Math.min(y, a.y + a.height - height))),
+    width: Math.round(width),
+    height: Math.round(height)
+  }
+}
+
+// The panel is placed before its result exists and then grows by the result
+// region, so the summon-time clamp goes stale: growing from a bottom-anchored
+// placement pushed the deliver row off screen (#7). Re-clamp against the work
+// area of the display the window is currently on, keeping its top-left where it
+// is when the new size still fits — the panel slides up only as far as it must.
+export function applyResize(win, size, displays) {
+  const b = win.getBounds()
+  const r = fitInside(displayForPoint(b, displays).workArea, b.x, b.y, size.width, size.height)
+  win.setContentSize(r.width, r.height)
+  win.setPosition(r.x, r.y)
+  return r
+}
+
 export function clampOverlay(anchor, size, displays) {
   const { workArea: a } = displayForPoint(anchor, displays)
   const width = Math.min(size.width, a.width)
@@ -38,12 +63,5 @@ export function clampOverlay(anchor, size, displays) {
   // the panel never extends past any work-area edge.
   if (x + width > a.x + a.width) x = anchor.x - width - GAP
   if (y + height > a.y + a.height) y = anchor.y - height - GAP
-  x = Math.max(a.x, Math.min(x, a.x + a.width - width))
-  y = Math.max(a.y, Math.min(y, a.y + a.height - height))
-  return {
-    x: Math.round(x),
-    y: Math.round(y),
-    width: Math.round(width),
-    height: Math.round(height)
-  }
+  return fitInside(a, x, y, width, height)
 }
