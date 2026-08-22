@@ -3,7 +3,6 @@ import { join } from 'path'
 import { createGesture } from './icon-gesture.js'
 import { placeAtSlot, nearestSlot } from './overlay-slots.js'
 import { getSettings, getOverlaySlot, setOverlaySlot } from './settings.js'
-import { ICON_SIZE } from './icon-anchor.js'
 import { log } from './log.js'
 
 // The parked pencil icon: a tiny frameless non-activating always-on-top window
@@ -12,6 +11,10 @@ import { log } from './log.js'
 // focusable:false is what keeps it frontmost). Drag → follow the mouse, snap to
 // the nearest slot on release, persist it (the panel shares the same slot).
 // Distinct from ghost-icon.js, which belongs to the AX field-anchor milestone.
+
+// Own size, not icon-anchor's ICON_SIZE — the parked launcher wants a bigger
+// target than the in-field ghost icon.
+const ICON_SIZE = 48
 
 let win = null
 let onSummon = null

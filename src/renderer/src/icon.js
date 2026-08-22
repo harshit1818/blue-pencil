@@ -14,7 +14,7 @@ badge.style.cssText = [
   'display:flex',
   'align-items:center',
   'justify-content:center',
-  'font:16px -apple-system',
+  'font:22px -apple-system',
   'cursor:pointer',
   '-webkit-user-select:none'
 ].join(';')
