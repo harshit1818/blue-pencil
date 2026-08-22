@@ -111,6 +111,19 @@ test('a sub-second frame poll emits bounds for scroll moves AX never notifies', 
   assert.ok(Number(m[1]) < 1, 'poll must be sub-second to feel attached while scrolling')
 })
 
+test('packaged builds ship the helper binary next to the app', () => {
+  // index.js resolves process.resourcesPath/ax-probe when app.isPackaged —
+  // without these two hooks every .dmg silently ships a dead ghost icon (R12
+  // hides the failure), while dev keeps working off the repo path.
+  const pkg = JSON.parse(readFileSync(fileURLToPath(new URL('../package.json', import.meta.url)), 'utf8'))
+  const extra = pkg.build?.extraResources ?? []
+  assert.ok(
+    extra.some((r) => (r.from ?? r) === 'helper/ax-probe' && (r.to ?? '') === 'ax-probe'),
+    'build.extraResources must copy helper/ax-probe to Resources/ax-probe'
+  )
+  assert.match(pkg.scripts.dist, /helper:build/, 'dist must rebuild the helper before packaging')
+})
+
 test('swift source typechecks', (t) => {
   const find = spawnSync('xcrun', ['--find', 'swiftc'], { encoding: 'utf8' })
   if (find.status !== 0) return t.skip('no swift toolchain on this machine')

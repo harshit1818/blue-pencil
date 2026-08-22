@@ -17,7 +17,7 @@
     "rebuild": "electron-rebuild -f -w keytar",
     "prepare": "node scripts/setup-hooks.mjs",
     "postinstall": "electron-builder install-app-deps",
-    "dist": "electron-vite build && electron-builder --mac"
+    "dist": "npm run helper:build && electron-vite build && electron-builder --mac"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.69.0",
@@ -54,6 +54,12 @@
     "files": [
       "out/**/*",
       "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "helper/ax-probe",
+        "to": "ax-probe"
+      }
     ],
     "mac": {
       "icon": "build/icon.icns",
