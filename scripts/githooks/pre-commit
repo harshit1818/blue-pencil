@@ -4,5 +4,17 @@
 # board flip or a broken fix past a red gate. Humans bypass with `git commit -n`.
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
+
+# Local-only planning docs must never be committed (any branch). This guard
+# must live here: core.hooksPath (scripts/githooks, wired by setup-hooks.mjs)
+# shadows .git/hooks entirely, so a copy there is dead once the path is set.
+staged=$(git diff --cached --name-only | grep -E '^docs/(phase3|superpowers)/' || true)
+if [ -n "$staged" ]; then
+  echo "pre-commit: refusing to commit local-only planning docs:" >&2
+  echo "$staged" | sed 's/^/  /' >&2
+  echo "Unstage them (git restore --staged <path>)." >&2
+  exit 1
+fi
+
 echo "pre-commit: running npm run verify (bypass with git commit -n)…" >&2
 exec npm run --silent verify 1>&2
