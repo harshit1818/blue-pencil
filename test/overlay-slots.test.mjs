@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { SLOTS, placeAtSlot, nearestSlot, normalizeSlot } from '../src/main/overlay-slots.js'
+import { SLOTS, placeAtSlot, placeNearRect, nearestSlot, normalizeSlot } from '../src/main/overlay-slots.js'
 
 const wa = { x: 0, y: 25, width: 1512, height: 920 }
 const size = { width: 340, height: 420 }
@@ -79,7 +79,58 @@ test('normalizeSlot accepts valid slots, falls back to bottom-right', () => {
   assert.equal(normalizeSlot(42), 'bottom-right')
 })
 
-test('overlay.js places and sizes only through the slot helper', () => {
+const icon = { x: 800, y: 500, width: 38, height: 38 }
+
+test('field anchor unfolds up-left: right edges aligned, bottom a gap above the icon', () => {
+  const r = placeNearRect(icon, size, wa)
+  assert.equal(r.x + r.width, icon.x + icon.width)
+  assert.equal(r.y + r.height, icon.y - GAP)
+  assert.deepEqual({ width: r.width, height: r.height }, size)
+})
+
+test('no room above the icon → panel flips below it', () => {
+  const high = { ...icon, y: wa.y + 20 }
+  const r = placeNearRect(high, size, wa)
+  assert.equal(r.y, high.y + high.height + GAP)
+  assert.ok(r.y + r.height <= wa.y + wa.height - GAP)
+})
+
+test('icon near the left edge → panel flips to left-align with the icon', () => {
+  const left = { ...icon, x: wa.x + 40 }
+  const r = placeNearRect(left, size, wa)
+  assert.equal(r.x, left.x)
+})
+
+test('anchored panel stays fully inside the work area at every screen edge', () => {
+  const spots = [
+    { x: wa.x, y: wa.y },
+    { x: wa.x + wa.width - 38, y: wa.y },
+    { x: wa.x, y: wa.y + wa.height - 38 },
+    { x: wa.x + wa.width - 38, y: wa.y + wa.height - 38 },
+    { x: 700, y: 500 }
+  ]
+  for (const s of spots) {
+    const r = placeNearRect({ ...s, width: 38, height: 38 }, size, wa)
+    const where = `${s.x},${s.y}`
+    assert.ok(r.x >= wa.x && r.x + r.width <= wa.x + wa.width, `x inside for ${where}`)
+    assert.ok(r.y >= wa.y && r.y + r.height <= wa.y + wa.height, `y inside for ${where}`)
+  }
+})
+
+test('oversized anchored panel is capped to the work area', () => {
+  const r = placeNearRect(icon, { width: 340, height: 5000 }, wa)
+  assert.equal(r.height, 920 - 2 * GAP)
+  assert.ok(r.y >= wa.y && r.y + r.height <= wa.y + wa.height)
+})
+
+test('anchored placement respects a second display work area', () => {
+  const wa2 = { x: -1920, y: -300, width: 1920, height: 1080 }
+  const r = placeNearRect({ x: -1000, y: 400, width: 38, height: 38 }, size, wa2)
+  assert.equal(r.x + r.width, -1000 + 38)
+  assert.equal(r.y + r.height, 400 - GAP)
+})
+
+test('overlay.js places and sizes only through the slot helpers', () => {
   const src = readFileSync(new URL('../src/main/overlay.js', import.meta.url), 'utf8')
   assert.match(src, /placeAtSlot\(/, 'placement must route through placeAtSlot (work-area cap)')
   assert.equal(

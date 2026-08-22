@@ -187,3 +187,4 @@ test('unknown or malformed events are ignored', () => {
   assert.equal(f.event(null, 0), null)
   assert.equal(f.event('focus', 0), null)
 })
+
