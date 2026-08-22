@@ -1,5 +1,5 @@
 // Pure snap-slot placement — no electron imports, so it loads under plain
-// `node --test` (same pattern as overlay-clamp.js). The overlay no longer
+// `node --test` (same pattern as window-bounds.js). The overlay no longer
 // follows the cursor: it appears at a named slot of the work area and stays
 // there. Placement is a pure function of (slot, size, workArea), so a resize
 // is just re-placement — each slot pins its named edges and growth moves away

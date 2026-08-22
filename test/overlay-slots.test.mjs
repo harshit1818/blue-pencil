@@ -1,5 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { SLOTS, placeAtSlot, nearestSlot, normalizeSlot } from '../src/main/overlay-slots.js'
 
 const wa = { x: 0, y: 25, width: 1512, height: 920 }
@@ -76,4 +77,14 @@ test('normalizeSlot accepts valid slots, falls back to bottom-right', () => {
   assert.equal(normalizeSlot('centre'), 'bottom-right')
   assert.equal(normalizeSlot(undefined), 'bottom-right')
   assert.equal(normalizeSlot(42), 'bottom-right')
+})
+
+test('overlay.js places and sizes only through the slot helper', () => {
+  const src = readFileSync(new URL('../src/main/overlay.js', import.meta.url), 'utf8')
+  assert.match(src, /placeAtSlot\(/, 'placement must route through placeAtSlot (work-area cap)')
+  assert.equal(
+    (src.match(/win\.setContentSize\(/g) || []).length,
+    1,
+    'sizing happens exactly once, inside positionAtSlot — a bare setContentSize skips the cap'
+  )
 })
