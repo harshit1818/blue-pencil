@@ -1,12 +1,15 @@
 import { BrowserWindow, screen } from 'electron'
 import { join } from 'path'
 import { restoreClipboardIfPending } from './automation.js'
-import { applyResize } from './overlay-clamp.js'
+import { placeAtSlot, nearestSlot } from './overlay-slots.js'
+import { getOverlaySlot, setOverlaySlot } from './settings.js'
 import { log } from './log.js'
 
 // A single reused, frameless, transparent, always-on-top popover window shown
-// near the cursor on hotkey. Created lazily and hidden (not destroyed) between
-// uses so its renderer state persists. Same preload as the main window.
+// at a remembered snap slot on hotkey. Created lazily and hidden (not destroyed)
+// between uses so its renderer state persists. Same preload as the main window.
+// The user drags it by the preview header; on release it snaps to the nearest
+// slot and that slot persists (overlay-slots.js owns the geometry).
 
 let win = null
 let rendererReady = false // the popover renderer has mounted + attached its listeners
@@ -59,6 +62,26 @@ function create() {
   win.webContents.on('render-process-gone', () => {
     rendererReady = false
   })
+  // Snap to the nearest slot once a drag settles. macOS fires 'moved' during a
+  // drag too, so debounce; snapping while the mouse still holds the window would
+  // yank it out of the user's hand. Programmatic placements land exactly on a
+  // slot rect, so the handler no-ops on them.
+  let snapTimer = null
+  win.on('moved', () => {
+    clearTimeout(snapTimer)
+    snapTimer = setTimeout(() => {
+      if (!win || !win.isVisible()) return
+      const b = win.getBounds()
+      const { workArea } = screen.getDisplayMatching(b)
+      const slot = nearestSlot(b, workArea)
+      if (slot !== getOverlaySlot()) setOverlaySlot(slot)
+      const r = placeAtSlot(slot, b, workArea)
+      if (r.x !== b.x || r.y !== b.y) {
+        win.setPosition(r.x, r.y)
+        log(`snapped to ${slot} at (${r.x},${r.y})`)
+      }
+    }, 200)
+  })
 
   if (process.env.ELECTRON_RENDERER_URL) {
     win.loadURL(`${process.env.ELECTRON_RENDERER_URL}/popover.html`)
@@ -68,20 +91,14 @@ function create() {
   return win
 }
 
-function positionAtCursor() {
-  const pt = screen.getCursorScreenPoint()
-  const display = screen.getDisplayNearestPoint(pt)
-  const { workArea } = display
-  log(`positionAtCursor cursor=(${pt.x},${pt.y}) display=${display.id} workArea=${workArea.x},${workArea.y},${workArea.width}x${workArea.height}`)
-  const [w, h] = win.getSize()
-  let x = pt.x + 12
-  let y = pt.y + 12
-  // Flip across the cursor if we'd run off the right/bottom edge, then clamp.
-  if (x + w > workArea.x + workArea.width) x = pt.x - w - 12
-  if (y + h > workArea.y + workArea.height) y = pt.y - h - 12
-  x = Math.max(workArea.x, Math.min(x, workArea.x + workArea.width - w))
-  y = Math.max(workArea.y, Math.min(y, workArea.y + workArea.height - h))
-  win.setPosition(Math.round(x), Math.round(y))
+// Place at the remembered slot on the given work area. Placement is a pure
+// function of (slot, size, workArea): a summon with last summon's stale size is
+// corrected by the first popover:resize without the pinned corner moving (#8).
+function positionAtSlot(workArea, width, height) {
+  const r = placeAtSlot(getOverlaySlot(), { width, height }, workArea)
+  win.setContentSize(r.width, r.height)
+  win.setPosition(r.x, r.y)
+  return r
 }
 
 // Deliver the captured text only once the renderer is listening. This avoids the
@@ -93,7 +110,11 @@ function flush() {
   const accessibility = pendingAccessibility
   const markdown = pendingMarkdown
   pendingText = null
-  positionAtCursor()
+  // Summon on the display the user is working on (cursor is the best proxy);
+  // the slot name re-resolves against that display's work area.
+  const { workArea } = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
+  const [w, h] = win.getContentSize()
+  positionAtSlot(workArea, w, h)
   win.webContents.send('popover:show', { text, accessibility, markdown })
   // showInactive() shows without activating the app, so summoning the overlay
   // doesn't pull the active Space to another display (the "opens on the other
@@ -134,8 +155,13 @@ export function suppressOverlayBlurDismiss() {
   blurDismissSuppressed = true
 }
 
+// The card changed size (result arrived, error row, …): re-place at the slot on
+// the display the window is on. The pinned edges stay fixed, so growth moves
+// toward screen centre and never pushes the deliver row off screen (#7).
 export function resizeOverlay(w, h) {
-  if (win) applyResize(win, { width: w, height: h }, screen.getAllDisplays())
+  if (!win) return
+  const { workArea } = screen.getDisplayMatching(win.getBounds())
+  positionAtSlot(workArea, w, h)
 }
 
 export function isOverlayVisible() {

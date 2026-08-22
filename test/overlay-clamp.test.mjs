@@ -111,8 +111,12 @@ test('a resize clamps against the display the overlay is on, not the primary', (
 // correct bottom-edge clamp while overlay.js grew the window with a bare
 // setContentSize and never repositioned. A tested helper nothing calls is how #7
 // survived — so pin the wiring too.
-test('overlay.js resizes only through the clamping helper', () => {
+test('overlay.js places and sizes only through the slot helper', () => {
   const src = readFileSync(new URL('../src/main/overlay.js', import.meta.url), 'utf8')
-  assert.match(src, /applyResize\(/, 'resizeOverlay must route through applyResize')
-  assert.doesNotMatch(src, /win\.setContentSize\(/, 'bare setContentSize skips the work-area clamp')
+  assert.match(src, /placeAtSlot\(/, 'placement must route through placeAtSlot (work-area cap)')
+  assert.equal(
+    (src.match(/win\.setContentSize\(/g) || []).length,
+    1,
+    'sizing happens exactly once, inside positionAtSlot — a bare setContentSize skips the cap'
+  )
 })
