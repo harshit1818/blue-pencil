@@ -15,7 +15,7 @@ import { qualifies, SECURE_ROLES } from '../src/main/field-qualify.js'
 const swiftPath = fileURLToPath(new URL('../helper/ax-probe.swift', import.meta.url))
 const src = readFileSync(swiftPath, 'utf8')
 
-const PROTOCOL = ['focus', 'bounds', 'blur', 'heartbeat', 'readValue', 'verifyFocus', 'error']
+const PROTOCOL = ['focus', 'bounds', 'blur', 'heartbeat', 'readValue', 'verifyFocus', 'error', 'axEnable']
 
 test('probe emits exactly the protocol event types', () => {
   const emitted = new Set([...src.matchAll(/"type":\s*"(\w+)"/g)].map((m) => m[1]))
@@ -72,6 +72,27 @@ test('emitted event shapes flow through the parser into qualifies()', () => {
   assert.equal(events.length, 2)
   assert.equal(qualifies(events[0]), true)
   assert.equal(qualifies(events[1]), false)
+})
+
+test('electron AX tree is woken before the first focus read', () => {
+  // Chromium builds its AX tree lazily: Electron listens for
+  // AXManualAccessibility, vanilla Chromium for AXEnhancedUserInterface.
+  // Without this poke the probe sees nothing inside Slack/Chrome/ChatGPT.
+  const fnStart = src.indexOf('func enableAXTree(')
+  assert.ok(fnStart > -1, 'enableAXTree() not found')
+  const body = src.slice(fnStart, src.indexOf('\nfunc ', fnStart))
+  const manualAt = body.indexOf('"AXManualAccessibility"')
+  const enhancedAt = body.indexOf('"AXEnhancedUserInterface"')
+  assert.ok(manualAt > -1 && enhancedAt > manualAt, 'must try AXManualAccessibility first, AXEnhancedUserInterface as fallback')
+  assert.equal(body.split('AXUIElementSetAttributeValue').length, 3, 'each attribute set exactly once')
+  assert.equal(body.split('kCFBooleanTrue').length, 3, 'both attributes must be set to true')
+
+  const obsStart = src.indexOf('func observe(')
+  const obsBody = src.slice(obsStart, src.indexOf('\n// ', obsStart))
+  const enableAt = obsBody.indexOf('enableAXTree(')
+  const refreshAt = obsBody.indexOf('refreshFocus()')
+  assert.ok(enableAt > -1 && refreshAt > enableAt, 'observe() must enable the AX tree before refreshFocus()')
+  assert.ok(obsBody.includes('"type": "axEnable"'), 'observe() must emit the axEnable outcome for the truth-table run')
 })
 
 test('swift source typechecks', (t) => {

@@ -9,6 +9,7 @@
 //   {"type":"bounds","elementId","x","y","width","height"}   element/window moved or resized
 //   {"type":"blur"}                                          no focused element
 //   {"type":"heartbeat"}                                     every 3s (liveness)
+//   {"type":"axEnable","bundleId","method":"manual"|"enhanced"|"none"}  Chromium AX-tree poke outcome
 //   {"type":"error","message"}
 // stdin — request/response:
 //   {"op":"readValue","elementId"}   → {"type":"readValue","elementId","ok","value"|"error"}
@@ -162,6 +163,23 @@ func teardownObserver() {
   observedPid = 0
 }
 
+// Chromium builds its AX tree only once an assistive client announces itself.
+// Electron listens for AXManualAccessibility (its public opt-in, electron#10305)
+// but some versions reject it (electron#37465); vanilla Chromium listens for the
+// older AXEnhancedUserInterface, hence the fallback. Native apps refuse both
+// sets with attributeUnsupported — the harmless "none".
+// ponytail: set on every frontmost app; gate by bundle id if the truth-table
+// run surfaces side effects in native apps.
+func enableAXTree(_ appEl: AXUIElement) -> String {
+  if AXUIElementSetAttributeValue(appEl, "AXManualAccessibility" as CFString, kCFBooleanTrue) == .success {
+    return "manual"
+  }
+  if AXUIElementSetAttributeValue(appEl, "AXEnhancedUserInterface" as CFString, kCFBooleanTrue) == .success {
+    return "enhanced"
+  }
+  return "none"
+}
+
 func observe(_ app: NSRunningApplication) {
   let pid = app.processIdentifier
   if pid == observedPid { return }
@@ -176,8 +194,17 @@ func observe(_ app: NSRunningApplication) {
   observer = o
   CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(o), .defaultMode)
   let appEl = AXUIElementCreateApplication(pid)
+  let axMethod = enableAXTree(appEl)
+  emit(["type": "axEnable", "bundleId": currentBundleId, "method": axMethod])
   AXObserverAddNotification(o, appEl, kAXFocusedUIElementChangedNotification as CFString, nil)
   refreshFocus()
+  if !hadFocus && axMethod != "none" {
+    // the poked tree builds asynchronously — one delayed re-read catches a
+    // field that was already focused when the app came frontmost
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+      if observedPid == pid && !hadFocus { refreshFocus() }
+    }
+  }
 }
 
 // The single AXValue read in the whole binary — guarded so a secure field's
