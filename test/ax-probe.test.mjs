@@ -111,6 +111,16 @@ test('a sub-second frame poll emits bounds for scroll moves AX never notifies', 
   assert.ok(Number(m[1]) < 1, 'poll must be sub-second to feel attached while scrolling')
 })
 
+test('every bounds emission records the frame it emitted (settle-clock dedupe)', () => {
+  // emitBounds must take the already-read rect and store it as lastPolledFrame:
+  // if the notification path skips the store, the poll re-emits a duplicate
+  // bounds after every window drag and pushes the consumer's settle clock back.
+  const fnStart = src.indexOf('func emitBounds(_ f: CGRect)')
+  assert.ok(fnStart > -1, 'emitBounds must take the frame instead of re-reading it')
+  const body = src.slice(fnStart, src.indexOf('\nfunc ', fnStart))
+  assert.ok(body.includes('lastPolledFrame = f'), 'emitBounds must record the emitted frame')
+})
+
 test('packaged builds ship the helper binary next to the app', () => {
   // index.js resolves process.resourcesPath/ax-probe when app.isPackaged —
   // without these two hooks every .dmg silently ships a dead ghost icon (R12

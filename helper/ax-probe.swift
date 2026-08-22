@@ -35,6 +35,7 @@ var observedPid: pid_t = 0
 var lastPolledFrame = CGRect.zero
 var currentBundleId = ""
 var currentElement: AXUIElement?
+var currentWindow: AXUIElement?
 var currentElementId = ""
 var hadFocus = false
 var elementWatches: [(AXUIElement, String)] = []
@@ -84,10 +85,11 @@ func frameDict(_ f: CGRect) -> [String: Any] {
 }
 
 // The owning window's rect, for the consumer's visible-portion clamp (R4).
-// Empty when the window can't be resolved — consumers fall back to the
-// element rect alone.
-func windowFrame(of el: AXUIElement) -> [String: Any] {
-  guard let win = elementAttr(el, kAXWindowAttribute), let f = rect(of: win) else { return [:] }
+// The window element is resolved once per focus (currentWindow); only its
+// rect is re-read per emission (the window can move). Empty when unresolvable
+// — consumers fall back to the element rect alone.
+func currentWindowFrame() -> [String: Any] {
+  guard let win = currentWindow, let f = rect(of: win) else { return [:] }
   return frameDict(f)
 }
 
@@ -108,6 +110,7 @@ func clearElementWatches() {
 func blurIfNeeded() {
   clearElementWatches()
   currentElement = nil
+  currentWindow = nil
   currentElementId = ""
   if hadFocus {
     hadFocus = false
@@ -131,12 +134,12 @@ func emitFocus(_ el: AXUIElement) {
     "width": Double(f.size.width),
     "height": Double(f.size.height),
     "elementId": currentElementId,
-    "windowFrame": windowFrame(of: el)
+    "windowFrame": currentWindowFrame()
   ])
 }
 
-func emitBounds() {
-  guard let el = currentElement, let f = rect(of: el) else { return }
+func emitBounds(_ f: CGRect) {
+  lastPolledFrame = f // both emit paths share the poll's change detector
   emit([
     "type": "bounds",
     "elementId": currentElementId,
@@ -144,7 +147,7 @@ func emitBounds() {
     "y": Double(f.origin.y),
     "width": Double(f.size.width),
     "height": Double(f.size.height),
-    "windowFrame": windowFrame(of: el)
+    "windowFrame": currentWindowFrame()
   ])
 }
 
@@ -154,21 +157,22 @@ func refreshFocus() {
   let appEl = AXUIElementCreateApplication(observedPid)
   guard let el = elementAttr(appEl, kAXFocusedUIElementAttribute) else { return blurIfNeeded() }
   currentElement = el
+  currentWindow = elementAttr(el, kAXWindowAttribute)
   currentElementId = String(CFHash(el))
   hadFocus = true
   lastPolledFrame = rect(of: el) ?? .zero
   emitFocus(el)
   for n in [kAXMovedNotification, kAXResizedNotification] {
     watch(el, n)
-    if let win = elementAttr(el, kAXWindowAttribute) { watch(win, n) }
+    if let win = currentWindow { watch(win, n) }
   }
 }
 
 let axCallback: AXObserverCallback = { _, _, notification, _ in
   if (notification as String) == kAXFocusedUIElementChangedNotification {
     refreshFocus()
-  } else {
-    emitBounds()
+  } else if let el = currentElement, let f = rect(of: el) {
+    emitBounds(f)
   }
 }
 
@@ -295,10 +299,7 @@ Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { _ in
 // ponytail: 250ms flat poll; event-driven if AX ever grows a scroll notification.
 Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { _ in
   guard let el = currentElement, let f = rect(of: el) else { return }
-  if f != lastPolledFrame {
-    lastPolledFrame = f
-    emitBounds()
-  }
+  if f != lastPolledFrame { emitBounds(f) }
 }
 
 DispatchQueue.global().async {
