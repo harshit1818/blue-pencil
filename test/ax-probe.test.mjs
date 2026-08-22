@@ -111,6 +111,25 @@ test('a sub-second frame poll emits bounds for scroll moves AX never notifies', 
   assert.ok(Number(m[1]) < 1, 'poll must be sub-second to feel attached while scrolling')
 })
 
+test('AX calls are time-bounded below the heartbeat budget (hung-app safety)', () => {
+  // Without a messaging timeout, one beachballing app blocks the run loop,
+  // starves heartbeats past the driver's 6s budget, and burns the respawn
+  // budget on a healthy helper. The bound must leave room for a poll+emit
+  // chain of a few calls inside one 3s heartbeat interval.
+  const m = src.match(/AXUIElementSetMessagingTimeout\([^,]+,\s*([\d.]+)\)/)
+  assert.ok(m, 'AXUIElementSetMessagingTimeout not set')
+  assert.ok(Number(m[1]) > 0 && Number(m[1]) <= 1, 'per-call bound must be (0, 1]s')
+})
+
+test('the poked-tree retry re-resolves focus on a schedule, not gated on hadFocus', () => {
+  // A pre-poke stub element sets hadFocus=true and used to skip the only
+  // retry; a tree slower than the single 0.5s window was then missed forever.
+  const obsStart = src.indexOf('func observe(')
+  const obsBody = src.slice(obsStart, src.indexOf('\n// ', obsStart))
+  assert.match(obsBody, /for delay in \[[\d., ]+\]/, 'retry schedule not found')
+  assert.ok(!obsBody.includes('!hadFocus'), 'retries must not be gated on hadFocus')
+})
+
 test('every bounds emission records the frame it emitted (settle-clock dedupe)', () => {
   // emitBounds must take the already-read rect and store it as lastPolledFrame:
   // if the notification path skips the store, the poll re-emits a duplicate

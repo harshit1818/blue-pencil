@@ -220,11 +220,14 @@ func observe(_ app: NSRunningApplication) {
   emit(["type": "axEnable", "bundleId": currentBundleId, "method": axMethod])
   AXObserverAddNotification(o, appEl, kAXFocusedUIElementChangedNotification as CFString, nil)
   refreshFocus()
-  if !hadFocus && axMethod != "none" {
-    // the poked tree builds asynchronously — one delayed re-read catches a
-    // field that was already focused when the app came frontmost
-    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-      if observedPid == pid && !hadFocus { refreshFocus() }
+  if axMethod != "none" {
+    // The poked tree builds asynchronously — sometimes past 0.5s — and the
+    // immediate read can resolve a pre-poke stub element, so re-resolve on a
+    // schedule regardless of what it found (a duplicate focus is harmless).
+    for delay in [0.6, 1.8] {
+      DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+        if observedPid == pid { refreshFocus() }
+      }
     }
   }
 }
@@ -278,6 +281,12 @@ if !AXIsProcessTrusted() {
   emit(["type": "error", "message": "accessibility permission not granted — add this binary (or your terminal) in System Settings › Privacy & Security › Accessibility, then rerun"])
   exit(1)
 }
+
+// Bound every AX call process-wide: a beachballing target app must never block
+// this run loop past the heartbeat budget (the driver kills a silent helper
+// after 6s and burns a respawn attempt). 0.5s per call keeps the worst
+// poll+emit chain of a few calls well inside one 3s heartbeat interval.
+AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), 0.5)
 
 let activationToken = NSWorkspace.shared.notificationCenter.addObserver(
   forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
