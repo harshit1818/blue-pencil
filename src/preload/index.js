@@ -22,6 +22,8 @@ const api = {
     return () => ipcRenderer.removeListener('popover:show', h)
   },
   popoverReady: () => ipcRenderer.send('popover:ready'),
+  // Parked icon (used by icon.html's renderer; harmless elsewhere).
+  iconMouse: (evt) => ipcRenderer.send('icon:mouse', evt),
   popoverResize: (w, h) => ipcRenderer.send('popover:resize', w, h),
   popoverDismiss: () => ipcRenderer.send('popover:dismiss'),
   clipboardWrite: (text) => ipcRenderer.invoke('clipboard:write', text),

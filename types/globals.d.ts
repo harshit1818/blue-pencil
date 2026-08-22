@@ -12,6 +12,7 @@ export interface Api {
   onSettingsChanged(cb: (settings: any) => void): () => void
   onPopoverShow(cb: (payload: any) => void): () => void
   popoverReady(): void
+  iconMouse(evt: { type: string; x: number; y: number }): void
   popoverResize(w: number, h: number): void
   popoverDismiss(): void
   clipboardWrite(text: string): Promise<any>

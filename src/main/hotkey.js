@@ -6,14 +6,9 @@ import { log } from './log.js'
 // Default accelerator; standard combos don't need Accessibility to register.
 const ACCELERATOR = "CommandOrControl+Shift+'"
 
-async function onFire() {
-  log('hotkey fired')
-  // Toggle: a second press while open dismisses.
-  if (isOverlayVisible()) {
-    log('  -> overlay visible, hiding (toggle)')
-    hideOverlay()
-    return
-  }
+// Grab-and-show, shared by the hotkey and the parked icon (both fire while the
+// source app is still frontmost — the icon window is non-activating).
+export async function summon() {
   // Don't summon over our own UI (interaction-spec edge case).
   const focused = BrowserWindow.getFocusedWindow()
   if (focused) {
@@ -30,6 +25,17 @@ async function onFire() {
   const { text, markdown } = granted ? await grabSelection() : readClipboardSelection()
   log(`  -> grab done (granted=${granted}, ${Date.now() - t0}ms, chars=${text?.length ?? 0})`)
   showOverlayAtCursor(text, granted, markdown)
+}
+
+async function onFire() {
+  log('hotkey fired')
+  // Toggle: a second press while open dismisses.
+  if (isOverlayVisible()) {
+    log('  -> overlay visible, hiding (toggle)')
+    hideOverlay()
+    return
+  }
+  await summon()
 }
 
 export function registerHotkey() {

@@ -27,7 +27,8 @@ export default defineConfig({
       rollupOptions: {
         input: {
           index: resolve(root, 'src/renderer/index.html'),
-          popover: resolve(root, 'src/renderer/popover.html')
+          popover: resolve(root, 'src/renderer/popover.html'),
+          icon: resolve(root, 'src/renderer/icon.html')
         }
       }
     }

@@ -9,7 +9,8 @@ import { guardSensitiveIpc } from './ipc-guard.js'
 import { listProviders, effectiveSettings, isValidProvider } from './providers.js'
 import { setProviderId, setModelId } from './settings.js'
 import { hasApiKey, setApiKey, seedFromEnv } from './keychain.js'
-import { registerHotkey, unregisterHotkey } from './hotkey.js'
+import { registerHotkey, unregisterHotkey, summon } from './hotkey.js'
+import { initParkIcon, onIconMouse } from './park-icon.js'
 import {
   resizeOverlay,
   hideOverlay,
@@ -193,6 +194,7 @@ app.whenReady().then(async () => {
 
   // Hotkey overlay channels.
   ipcMain.on('popover:ready', () => markRendererReady())
+  ipcMain.on('icon:mouse', (_event, evt) => onIconMouse(evt))
   ipcMain.on('popover:resize', (_event, w, h) => resizeOverlay(w, h))
   ipcMain.on('popover:dismiss', () => hideOverlay())
   ipcMain.handle('clipboard:write', (_event, text) => clipboard.writeText(text ?? ''))
@@ -221,6 +223,7 @@ app.whenReady().then(async () => {
   const hotkeyOk = registerHotkey()
   createTray(hotkeyOk)
   createWindow() // created hidden; summoned via the tray or by being needed
+  initParkIcon(summon) // parked pencil icon — click summons without the hotkey
 
   nativeTheme.on('updated', () => mainWindow?.setBackgroundColor(paperFor()))
 
