@@ -154,6 +154,31 @@ test('a fresh focus mid-motion places immediately and drops the stale pending fr
   assert.equal(f.tick(1000), null) // the old element's motion never resurfaces
 })
 
+test('events from our own process never anchor (self-filter)', () => {
+  const f = createIconFollower({ selfPid: 42 })
+  assert.equal(f.event(focus(field, { pid: 42 }), 0), null) // our own composer
+  const a = /** @type {any} */ (f.event(focus(field, { pid: 43 }), 0))
+  assert.equal(a.type, 'place') // everyone else still anchors
+})
+
+test('the follower owns the settle clock: settleMs and hasPending are exposed', () => {
+  // The wiring schedules its flush from these instead of re-deriving the
+  // deadline from a copied constant — two clocks for one policy diverge
+  // silently into a permanently hidden icon.
+  const f = createIconFollower({ settleMs: 123 })
+  assert.equal(f.settleMs, 123)
+  assert.equal(f.hasPending(), false)
+  f.event(focus(), 0)
+  assert.equal(f.hasPending(), false) // focus places immediately, nothing pending
+  f.event(bounds({ ...field, x: 110 }), 10)
+  assert.equal(f.hasPending(), true) // motion awaiting settle — wiring must re-arm
+  f.tick(500)
+  assert.equal(f.hasPending(), false) // flushed
+  f.event(bounds({ ...field, x: 120 }), 600)
+  f.event({ type: 'blur' }, 610)
+  assert.equal(f.hasPending(), false) // blur cancels the pending show
+})
+
 test('unknown or malformed events are ignored', () => {
   const f = createIconFollower()
   assert.equal(f.event({ type: 'heartbeat' }, 0), null)

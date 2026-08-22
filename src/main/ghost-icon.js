@@ -1,6 +1,6 @@
 import { BrowserWindow } from 'electron'
 import { color } from '@tokens'
-import { createIconFollower, ICON_SIZE, SETTLE_MS } from './icon-anchor.js'
+import { createIconFollower, ICON_SIZE } from './icon-anchor.js'
 import { getSettings } from './settings.js'
 
 // The F4 ghost icon: a tiny frameless non-activating always-on-top window that
@@ -12,7 +12,7 @@ import { getSettings } from './settings.js'
 
 let win = null
 let timer = null
-const follower = createIconFollower({ settings: getSettings })
+const follower = createIconFollower({ settings: getSettings, selfPid: process.pid })
 
 // Static visual matching the in-app badge — no preload, no renderer entry.
 const page = `<body style="margin:0;overflow:hidden;-webkit-user-select:none">
@@ -61,13 +61,23 @@ function run(action) {
   if (!win.isVisible()) win.showInactive()
 }
 
+function flush() {
+  const action = follower.tick(Date.now())
+  if (action) run(action)
+  // Fired early (timer skew) with motion still pending? Re-arm instead of
+  // silently leaving the icon hidden forever.
+  else if (follower.hasPending()) timer = setTimeout(flush, 30)
+}
+
 export function onHelperEvent(evt) {
   run(follower.event(evt, Date.now()))
-  // One deferred tick per burst, at the settle window: each new event pushes
-  // it back, so it fires once the field has been still for SETTLE_MS. The
-  // follower returns null from tick() when nothing is pending.
-  clearTimeout(timer)
-  timer = setTimeout(() => run(follower.tick(Date.now())), SETTLE_MS + 10)
+  // Re-arm the settle flush only for motion: the stream also carries
+  // non-positional events (error, future readValue/verifyFocus responses)
+  // which must not postpone the icon's reappearance.
+  if (evt?.type === 'bounds') {
+    clearTimeout(timer)
+    timer = setTimeout(flush, follower.settleMs + 10)
+  }
 }
 
 export function destroyGhostIcon() {

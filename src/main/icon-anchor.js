@@ -59,15 +59,20 @@ export function iconPosition(frame, windowFrame, size = ICON_SIZE) {
   return { x: Math.round(x), y: Math.round(y) }
 }
 
-export function createIconFollower({ settleMs = SETTLE_MS, settings = () => ({}) } = {}) {
+export function createIconFollower({ settleMs = SETTLE_MS, selfPid = null, settings = () => ({}) } = {}) {
   let anchored = false // a qualifying element currently has focus
   let lastMoveAt = -Infinity
   let pending = null // latest {frame, windowFrame} awaiting the settle window
 
   return {
+    // The wiring schedules its flush from these — the follower owns the clock.
+    settleMs,
+    hasPending: () => Boolean(pending),
     // A helper event arrived; returns the action to perform now (or null).
     event(evt, now) {
       if (!evt || typeof evt !== 'object') return null
+      // Our own composer already has the in-app badge — never anchor on it.
+      if (selfPid != null && evt.pid === selfPid) return null
       // Helper protocol carries the element rect as flat x/y/width/height on
       // the event itself, and the owning window's rect as evt.windowFrame.
       const frame = { x: evt.x, y: evt.y, width: evt.width, height: evt.height }
