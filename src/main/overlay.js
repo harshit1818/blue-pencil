@@ -183,6 +183,10 @@ export function suppressOverlayBlurDismiss() {
 // The card changed size (result arrived, error row, …): re-place at the slot on
 // the display the window is on. The pinned edges stay fixed, so growth moves
 // toward screen centre and never pushes the deliver row off screen (#7).
+// Field-anchored panels re-place against the icon rect captured at click time —
+// deliberately not chasing a field that scrolled underneath, but a card that
+// grows past the room above the icon does flip below it. Watch for that in the
+// eyes-on pass; pinning the chosen side is the fix if it reads as a jump.
 export function resizeOverlay(w, h) {
   if (!win) return
   const { workArea } = screen.getDisplayMatching(win.getBounds())
