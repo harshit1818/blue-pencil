@@ -27,7 +27,7 @@ import {
   relaunchApp
 } from './automation.js'
 import { createHelperDriver } from './helper-driver.js'
-import { onHelperEvent, destroyGhostIcon } from './ghost-icon.js'
+import { onHelperEvent, initGhostIcon, destroyGhostIcon } from './ghost-icon.js'
 import { denylist } from './field-qualify.js'
 import { getSettings } from './settings.js'
 
@@ -253,6 +253,7 @@ app.whenReady().then(async () => {
   createTray(hotkeyOk)
   createWindow() // created hidden; summoned via the tray or by being needed
   initParkIcon(summon) // parked pencil icon — click summons without the hotkey
+  initGhostIcon(summon) // field-anchored icon — click unfolds the panel there (#57)
   helperDriver.start()
 
   nativeTheme.on('updated', () => mainWindow?.setBackgroundColor(paperFor()))

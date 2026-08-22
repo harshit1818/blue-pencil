@@ -1,5 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { iconPosition, intersectRects, createIconFollower, ICON_SIZE } from '../src/main/icon-anchor.js'
 
 const winFrame = { x: 0, y: 0, width: 1512, height: 945 }
@@ -188,3 +189,18 @@ test('unknown or malformed events are ignored', () => {
   assert.equal(f.event('focus', 0), null)
 })
 
+
+// The click that summons the panel must never take key status from the target
+// app — the synthesized ⌘C grab happens while it is still frontmost. That is a
+// property of the window recipe, so assert the recipe itself (R6).
+test('the ghost icon window stays non-activating and click-through-free', () => {
+  const src = readFileSync(new URL('../src/main/ghost-icon.js', import.meta.url), 'utf8')
+  assert.match(src, /focusable: false/, 'a focusable icon window steals key status from the target app')
+  assert.doesNotMatch(src, /\bwin\.focus\(\)/, 'focusing the icon defeats the non-activating grab')
+  assert.doesNotMatch(
+    src,
+    /setIgnoreMouseEvents\(true\)/,
+    'the icon must receive clicks — M2 unfolds the panel from it'
+  )
+  assert.match(src, /showInactive\(\)/, 'showing must not activate us')
+})
