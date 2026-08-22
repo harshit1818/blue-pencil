@@ -28,6 +28,8 @@ import {
 } from './automation.js'
 import { createHelperDriver } from './helper-driver.js'
 import { onHelperEvent, destroyGhostIcon } from './ghost-icon.js'
+import { denylist } from './field-qualify.js'
+import { getSettings } from './settings.js'
 
 const HOTKEY_LABEL = "⌘⇧'"
 
@@ -41,7 +43,9 @@ const helperDriver = createHelperDriver({
   binaryPath: app.isPackaged
     ? join(process.resourcesPath, 'ax-probe')
     : join(app.getAppPath(), 'helper/ax-probe'),
-  isTrusted: () => process.platform === 'darwin' && isAccessibilityGranted()
+  isTrusted: () => process.platform === 'darwin' && isAccessibilityGranted(),
+  // denylisted apps never get their AX tree poked awake by the helper
+  args: () => denylist(getSettings())
 })
 helperDriver.subscribe(onHelperEvent)
 

@@ -130,6 +130,33 @@ test('a throwing subscriber never breaks delivery to the others', () => {
   assert.equal(got.length, 1)
 })
 
+test('each spawn passes fresh args from the injected provider (helper denylist)', () => {
+  const argCalls = []
+  let list = ['com.apple.Terminal']
+  const spawnedKids = []
+  let t = 0
+  const driver = createHelperDriver({
+    binaryPath: fileURLToPath(import.meta.url),
+    isTrusted: () => true,
+    args: () => list,
+    spawnFn: (_path, args) => {
+      argCalls.push(args)
+      const c = fakeChild()
+      spawnedKids.push(c)
+      return c
+    },
+    now: () => t,
+    tickMs: 1e9
+  })
+  driver.start()
+  assert.deepEqual(argCalls[0], ['com.apple.Terminal'])
+  list = ['com.apple.Terminal', 'com.microsoft.VSCode']
+  spawnedKids[0].emit('exit')
+  t = 500
+  driver.tick()
+  assert.deepEqual(argCalls[1], list, 'a respawn must re-read the provider, not reuse stale args')
+})
+
 test('output from a replaced child is ignored', () => {
   const { driver, spawned, setNow } = setup()
   const got = []

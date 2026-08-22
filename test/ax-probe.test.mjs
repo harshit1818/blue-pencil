@@ -91,8 +91,7 @@ test('electron AX tree is woken before the first focus read', () => {
   const manualAt = body.indexOf('"AXManualAccessibility"')
   const enhancedAt = body.indexOf('"AXEnhancedUserInterface"')
   assert.ok(manualAt > -1 && enhancedAt > manualAt, 'must try AXManualAccessibility first, AXEnhancedUserInterface as fallback')
-  assert.equal(body.split('AXUIElementSetAttributeValue').length, 3, 'each attribute set exactly once')
-  assert.equal(body.split('kCFBooleanTrue').length, 3, 'both attributes must be set to true')
+  assert.ok(body.includes('kCFBooleanTrue'), 'attributes must be set to true')
 
   const obsStart = src.indexOf('func observe(')
   const obsBody = src.slice(obsStart, src.indexOf('\n// ', obsStart))
@@ -109,6 +108,21 @@ test('a sub-second frame poll emits bounds for scroll moves AX never notifies', 
   const m = src.match(/withTimeInterval:\s*(0\.\d+),\s*repeats:\s*true[\s\S]*?lastPolledFrame[\s\S]*?emitBounds\(/)
   assert.ok(m, 'frame-poll timer comparing lastPolledFrame and emitting bounds not found')
   assert.ok(Number(m[1]) < 1, 'poll must be sub-second to feel attached while scrolling')
+})
+
+test('the AX poke is denylist-gated, ownership-aware, and reverted on exit', () => {
+  // The poke flips screen-reader detection in Chromium apps: never apply it to
+  // apps the consumer denylists (passed as argv), never claim an attribute
+  // another AX client already set, and always revert what WE set — on both
+  // exit paths (stdin close and the driver's SIGTERM kill) — so the side
+  // effect can't outlive Blue Pencil.
+  assert.match(src, /deniedBundles[\s\S]{0,80}CommandLine\.arguments/, 'argv denylist not parsed')
+  assert.match(src, /deniedBundles\.contains\(currentBundleId\)/, 'poke not gated on the denylist')
+  assert.match(src, /"already"/, 'an attribute already set by another client must be left alone')
+  const revert = src.match(/func revertPokes\(\)[\s\S]*?kCFBooleanFalse/)
+  assert.ok(revert, 'revertPokes() must set the poked attribute back to false')
+  const calls = src.split('revertPokes()').length - 1
+  assert.ok(calls >= 3, 'revertPokes must run on both exit paths (definition + stdin close + SIGTERM)')
 })
 
 test('AX calls are time-bounded below the heartbeat budget (hung-app safety)', () => {

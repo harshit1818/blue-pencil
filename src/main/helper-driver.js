@@ -19,6 +19,7 @@ const TICK_MS = 1000
  * @param {{
  *   binaryPath: string,
  *   isTrusted: () => boolean,
+ *   args?: () => string[],
  *   spawnFn?: (path: string, args: string[], opts: object) => any,
  *   now?: () => number,
  *   tickMs?: number
@@ -27,6 +28,7 @@ const TICK_MS = 1000
 export function createHelperDriver({
   binaryPath,
   isTrusted,
+  args = () => [],
   spawnFn = nodeSpawn,
   now = Date.now,
   tickMs = TICK_MS
@@ -59,7 +61,9 @@ export function createHelperDriver({
     parser.reset()
     let c
     try {
-      c = spawnFn(binaryPath, [], { stdio: ['pipe', 'pipe', 'ignore'] })
+      // args() is re-read on every (re)spawn so a settings change (denylist)
+      // reaches the helper at the next respawn without extra plumbing
+      c = spawnFn(binaryPath, args(), { stdio: ['pipe', 'pipe', 'ignore'] })
     } catch {
       // treat a spawn refusal like an instant crash — backoff handles the rest
       apply(lifecycle.exit(now()))

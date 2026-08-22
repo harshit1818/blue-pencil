@@ -10,7 +10,8 @@
 //   (windowFrame = the owning window's {x,y,width,height}, {} when unresolvable)
 //   {"type":"blur"}                                          no focused element
 //   {"type":"heartbeat"}                                     every 3s (liveness)
-//   {"type":"axEnable","bundleId","method":"manual"|"enhanced"|"none"}  Chromium AX-tree poke outcome
+//   {"type":"axEnable","bundleId","method":"manual"|"enhanced"|"already"|"none"}  Chromium AX-tree poke outcome
+//   (argv = bundle ids to never poke; pokes are reverted on exit/SIGTERM)
 //   {"type":"error","message"}
 // stdin — request/response:
 //   {"op":"readValue","elementId"}   → {"type":"readValue","elementId","ok","value"|"error"}
@@ -29,6 +30,13 @@ import ApplicationServices
 // Mirrors SECURE_ROLES in src/main/field-qualify.js — contract-tested in
 // test/ax-probe.test.mjs; change both together.
 let secureRoles = ["AXSecureTextField", "AXSecureTextArea"]
+
+// Bundle ids passed as argv: apps the consumer will never anchor on (its
+// denylist) — don't wake their AX trees; the poke flips screen-reader
+// detection in Chromium editors. pokedApps tracks what WE set, per pid, so
+// exit can revert exactly that and nothing an assistive client owns.
+let deniedBundles = Set(CommandLine.arguments.dropFirst())
+var pokedApps: [pid_t: String] = [:]
 
 var observer: AXObserver?
 var observedPid: pid_t = 0
@@ -189,17 +197,25 @@ func teardownObserver() {
 // Electron listens for AXManualAccessibility (its public opt-in, electron#10305)
 // but some versions reject it (electron#37465); vanilla Chromium listens for the
 // older AXEnhancedUserInterface, hence the fallback. Native apps refuse both
-// sets with attributeUnsupported — the harmless "none".
-// ponytail: set on every frontmost app; gate by bundle id if the truth-table
-// run surfaces side effects in native apps.
-func enableAXTree(_ appEl: AXUIElement) -> String {
-  if AXUIElementSetAttributeValue(appEl, "AXManualAccessibility" as CFString, kCFBooleanTrue) == .success {
-    return "manual"
-  }
-  if AXUIElementSetAttributeValue(appEl, "AXEnhancedUserInterface" as CFString, kCFBooleanTrue) == .success {
-    return "enhanced"
+// sets with attributeUnsupported — the harmless "none". An attribute another
+// AX client (VoiceOver) already set is left alone ("already") — we only ever
+// revert what we set ourselves.
+func enableAXTree(_ appEl: AXUIElement, _ pid: pid_t) -> String {
+  for (attr, label) in [("AXManualAccessibility", "manual"), ("AXEnhancedUserInterface", "enhanced")] {
+    if (copyAttr(appEl, attr) as? Bool) == true { return "already" }
+    if AXUIElementSetAttributeValue(appEl, attr as CFString, kCFBooleanTrue) == .success {
+      pokedApps[pid] = attr
+      return label
+    }
   }
   return "none"
+}
+
+func revertPokes() {
+  for (pid, attr) in pokedApps {
+    AXUIElementSetAttributeValue(AXUIElementCreateApplication(pid), attr as CFString, kCFBooleanFalse)
+  }
+  pokedApps = [:]
 }
 
 func observe(_ app: NSRunningApplication) {
@@ -216,11 +232,11 @@ func observe(_ app: NSRunningApplication) {
   observer = o
   CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(o), .defaultMode)
   let appEl = AXUIElementCreateApplication(pid)
-  let axMethod = enableAXTree(appEl)
+  let axMethod = deniedBundles.contains(currentBundleId) ? "none" : enableAXTree(appEl, pid)
   emit(["type": "axEnable", "bundleId": currentBundleId, "method": axMethod])
   AXObserverAddNotification(o, appEl, kAXFocusedUIElementChangedNotification as CFString, nil)
   refreshFocus()
-  if axMethod != "none" {
+  if axMethod == "manual" || axMethod == "enhanced" {
     // The poked tree builds asynchronously — sometimes past 0.5s — and the
     // immediate read can resolve a pre-poke stub element, so re-resolve on a
     // schedule regardless of what it found (a duplicate focus is harmless).
@@ -311,12 +327,25 @@ Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { _ in
   if f != lastPolledFrame { emitBounds(f) }
 }
 
+// The driver kills with SIGTERM — revert the pokes before dying so the
+// AX-tree flag never outlives us on the target apps.
+signal(SIGTERM, SIG_IGN)
+let termSource = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
+termSource.setEventHandler {
+  revertPokes()
+  exit(0)
+}
+termSource.resume()
+
 DispatchQueue.global().async {
   while let line = readLine(strippingNewline: true) {
     DispatchQueue.main.async { handleRequest(line) }
   }
   // stdin closed → the parent (Electron main, or your terminal) is gone
-  DispatchQueue.main.async { exit(0) }
+  DispatchQueue.main.async {
+    revertPokes()
+    exit(0)
+  }
 }
 
 RunLoop.main.run()
