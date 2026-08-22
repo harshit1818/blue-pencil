@@ -79,6 +79,11 @@ function create() {
     clearTimeout(snapTimer)
     snapTimer = setTimeout(() => {
       if (!win || win.isDestroyed() || !win.isVisible()) return
+      // A field-anchored panel is not slot-managed: its rect is not a slot rect,
+      // so the snap would neither no-op nor stay put — it would yank the panel
+      // to a corner ~200ms after it unfolded and overwrite the user's remembered
+      // slot (shared with the hotkey path and the parked icon).
+      if (fieldAnchor) return
       const slot = snapToNearestSlot(win)
       if (slot) log(`snapped to ${slot}`)
     }, 200)

@@ -70,11 +70,13 @@ function run(action) {
   if (!action) return
   if (action.type === 'hide') {
     if (win && win.isVisible()) win.hide()
-    // No field icon → the parked launcher is the pencil again, unless the panel
-    // itself is open (then it is the icon, unfolded).
-    // ponytail: an unfolded panel dismissed after the field lost focus leaves no
-    // pencil until the next helper focus/blur event — i.e. the user's next click.
-    if (!isOverlayVisible()) showParkIcon()
+    // The field is really gone (not just scrolling — a hide arrives on every
+    // bounds event) → the parked launcher is the pencil again, unless the panel
+    // itself is open, in which case IT is the icon, unfolded.
+    // ponytail: an unfolded panel dismissed while no field has focus leaves no
+    // pencil until the next helper focus/blur event — in practice the user's next
+    // click into a field or switch of app. The hotkey works throughout.
+    if (!follower.isAnchored() && !isOverlayVisible()) showParkIcon()
     return
   }
   if (!win) create()

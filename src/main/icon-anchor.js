@@ -69,6 +69,10 @@ export function createIconFollower({ settleMs = SETTLE_MS, selfPid = null, setti
     // The wiring schedules its flush from these — the follower owns the clock.
     settleMs,
     hasPending: () => Boolean(pending),
+    // A qualifying field still has focus. Distinguishes the transient hide of a
+    // field in motion (icon returns after the settle) from a real blur, which is
+    // the only hide that hands the pencil back to the parked launcher.
+    isAnchored: () => anchored,
     // A helper event arrived; returns the action to perform now (or null).
     event(evt, now) {
       if (!evt || typeof evt !== 'object') return null
