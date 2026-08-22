@@ -24,7 +24,7 @@ export const INSET = { right: 14, bottom: 16 }
 // once the frame has been still this long. Must exceed the helper's poll
 // interval or the icon flickers back between scroll polls; the ordering is
 // contract-tested against the Swift constant in test/ax-probe.test.mjs.
-export const SETTLE_MS = 200
+export const SETTLE_MS = 130
 
 function validRect(r) {
   return Boolean(
