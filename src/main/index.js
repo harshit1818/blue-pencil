@@ -7,10 +7,10 @@ import { validBounds } from './window-bounds.js'
 import { installNavigationGuards } from './navigation-guard.js'
 import { guardSensitiveIpc } from './ipc-guard.js'
 import { listProviders, effectiveSettings, isValidProvider } from './providers.js'
-import { setProviderId, setModelId } from './settings.js'
+import { setProviderId, setModelId, setFloatIcon } from './settings.js'
 import { hasApiKey, setApiKey, seedFromEnv } from './keychain.js'
 import { registerHotkey, unregisterHotkey, summon } from './hotkey.js'
-import { initParkIcon, onIconMouse } from './park-icon.js'
+import { initParkIcon, onIconMouse, showParkIcon, hideParkIcon } from './park-icon.js'
 import {
   resizeOverlay,
   hideOverlay,
@@ -189,6 +189,13 @@ app.whenReady().then(async () => {
       setModelId(id, model)
       broadcastSettings()
     }
+    return effectiveSettings()
+  })
+  ipcMain.handle('settings:setFloatIcon', (_event, on) => {
+    setFloatIcon(on)
+    broadcastSettings()
+    if (on && !isOverlayVisible()) showParkIcon()
+    if (!on) hideParkIcon()
     return effectiveSettings()
   })
 

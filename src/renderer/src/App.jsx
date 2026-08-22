@@ -40,6 +40,7 @@ export default function App() {
   const [hasKey, setHasKey] = useState(true)
   const [showKeys, setShowKeys] = useState(false)
   const [keyDraft, setKeyDraft] = useState('')
+  const [floatIcon, setFloatIcon] = useState(true)
   const wrapRef = useRef(null)
   const runGen = useRef(0)
 
@@ -57,6 +58,7 @@ export default function App() {
     if (!s) return
     setProvider(s.provider || '')
     setModels(s.models || {})
+    setFloatIcon(s.floatIcon !== false)
   }
 
   useEffect(() => {
@@ -367,6 +369,23 @@ export default function App() {
                   </span>
                 )}
               </div>
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: space.sm,
+                  font: `400 12px ${font.grotesk}`,
+                  color: C.ink,
+                  cursor: 'pointer'
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={floatIcon}
+                  onChange={(e) => window.api?.setFloatIcon?.(e.target.checked)}
+                />
+                Floating pencil icon
+              </label>
             </div>
           )}
 

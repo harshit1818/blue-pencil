@@ -71,13 +71,13 @@ export function resolveActive() {
 // Renderer-facing view: the effective active provider id, plus an effective
 // model string for every registry provider (stored value or defaultModel).
 export function effectiveSettings() {
-  const { provider, models } = getSettings()
+  const { provider, models, floatIcon } = getSettings()
   const active = REGISTRY[provider] ? provider : DEFAULT_PROVIDER
   const out = {}
   for (const [id, cfg] of Object.entries(REGISTRY)) {
     out[id] = (models?.[id] || '').trim() || cfg.defaultModel
   }
-  return { provider: active, models: out }
+  return { provider: active, models: out, floatIcon }
 }
 
 async function askAnthropic({ apiKey, model, prompt }) {
