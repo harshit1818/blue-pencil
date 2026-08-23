@@ -132,7 +132,9 @@ function flush() {
   const [w, h] = win.getContentSize()
   position(workArea, w, h)
   hideParkIcon() // the panel is the icon, unfolded — never both at once
-  win.webContents.send('popover:show', { text, accessibility, markdown })
+  // anchored tells the renderer which summon this was, so the empty state can
+  // name the gesture the user actually made.
+  win.webContents.send('popover:show', { text, accessibility, markdown, anchored: Boolean(fieldAnchor) })
   // showInactive() shows without activating the app, so summoning the overlay
   // doesn't pull the active Space to another display (the "opens on the other
   // screen, no overlay over fullscreen" bug). See
