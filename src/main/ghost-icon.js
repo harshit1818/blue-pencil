@@ -2,16 +2,25 @@ import { BrowserWindow } from 'electron'
 import { color } from '@tokens'
 import { createIconFollower, ICON_SIZE } from './icon-anchor.js'
 import { getSettings } from './settings.js'
+import { showParkIcon, hideParkIcon } from './park-icon.js'
+import { isOverlayVisible } from './overlay.js'
+import { log } from './log.js'
 
 // The F4 ghost icon: a tiny frameless non-activating always-on-top window that
 // sits at the inside bottom-right of the focused field's visible portion and
 // follows it. All placement/filter decisions live in icon-anchor.js; this file
 // only owns the BrowserWindow. onHelperEvent() is the single entry point — the
-// F2b wiring (#78) feeds it parsed helper events. No click behavior yet (M1):
-// the window ignores mouse events entirely; #57 makes it interactive.
+// F2b wiring (#78) feeds it parsed helper events.
+//
+// Clicking it unfolds the panel (#57). The click is read straight off the
+// window's own input stream — no preload, no IPC channel, so no new surface a
+// faked renderer message could reach (park-icon.js needs that machinery only
+// because it also drags). focusable:false + showInactive() keep the target app
+// frontmost, which is what lets the summon's synthesized ⌘C land in it.
 
 let win = null
 let timer = null
+let onClick = null
 const follower = createIconFollower({ settings: getSettings, selfPid: process.pid })
 
 // Static visual matching the in-app badge — no preload, no renderer entry.
@@ -40,7 +49,19 @@ function create() {
   })
   win.setAlwaysOnTop(true, 'screen-saver') // sit above fullscreen content (R5)
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
-  win.setIgnoreMouseEvents(true)
+  win.webContents.on('input-event', (_e, input) => {
+    // Electron's InputEvent carries no button, so any release on the icon
+    // summons — unlike the parked icon, whose renderer can filter to the left
+    // button. On a 38px badge a right-click opening the panel is harmless.
+    if (input.type !== 'mouseUp' || !onClick) return
+    // Deliberately no win.hide() here: the summon can refuse (a grab already in
+    // flight), and hiding first would leave the icon gone with no panel to show
+    // for it until the next helper event. Our app activating for the panel emits
+    // axEnable, which hides it a beat later anyway — and until then the icon
+    // staying put is honest feedback that the ~half-second grab is running.
+    log('ghost icon clicked -> summon')
+    onClick(win.getBounds())
+  })
   win.on('closed', () => {
     win = null
   })
@@ -51,14 +72,31 @@ function create() {
 function run(action) {
   if (!action) return
   if (action.type === 'hide') {
-    if (win && win.isVisible()) win.hide()
+    // Transitions only — a hide arrives on every bounds event, so logging each
+    // one would flood the log during a scroll. A visible→hidden pair here is
+    // exactly what "the icon blinked" looks like.
+    if (win && win.isVisible()) {
+      log('ghost icon hidden')
+      win.hide()
+    }
+    // The field is really gone (not just scrolling — a hide arrives on every
+    // bounds event) → the parked launcher is the pencil again, unless the panel
+    // itself is open, in which case IT is the icon, unfolded.
+    // ponytail: an unfolded panel dismissed while no field has focus leaves no
+    // pencil until the next helper focus/blur event — in practice the user's next
+    // click into a field or switch of app. The hotkey works throughout.
+    if (!follower.isAnchored() && !isOverlayVisible()) showParkIcon()
     return
   }
   if (!win) create()
+  hideParkIcon() // exactly one pencil: the field icon owns it while a field is focused
   win.setPosition(action.x, action.y)
   // showInactive: visible without activating us, so the target app keeps key
   // status — same discipline as overlay.js, minus the focus() the overlay needs.
-  if (!win.isVisible()) win.showInactive()
+  if (!win.isVisible()) {
+    log(`ghost icon shown at (${action.x},${action.y})`)
+    win.showInactive()
+  }
 }
 
 function flush() {
@@ -78,6 +116,12 @@ export function onHelperEvent(evt) {
     clearTimeout(timer)
     timer = setTimeout(flush, follower.settleMs + 10)
   }
+}
+
+// The click handler is wired once at startup (index.js); the window itself is
+// created lazily on the first placement.
+export function initGhostIcon(handler) {
+  onClick = handler
 }
 
 export function destroyGhostIcon() {

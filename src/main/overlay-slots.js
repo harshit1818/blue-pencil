@@ -14,8 +14,7 @@ export function normalizeSlot(slot) {
 }
 
 export function placeAtSlot(slot, size, a) {
-  const width = Math.round(Math.min(Math.max(1, size.width), a.width - 2 * GAP))
-  const height = Math.round(Math.min(Math.max(1, size.height), a.height - 2 * GAP))
+  const { width, height } = capSize(size, a)
   const s = normalizeSlot(slot)
   const x = s.endsWith('right') ? a.x + a.width - GAP - width : a.x + GAP
   const y = s.startsWith('top')
@@ -24,6 +23,36 @@ export function placeAtSlot(slot, size, a) {
       ? a.y + a.height - GAP - height
       : Math.round(a.y + (a.height - height) / 2) // edge midpoint pins vertical centre
   return { x, y, width, height }
+}
+
+function capSize(size, a) {
+  return {
+    width: Math.round(Math.min(Math.max(1, size.width), a.width - 2 * GAP)),
+    height: Math.round(Math.min(Math.max(1, size.height), a.height - 2 * GAP))
+  }
+}
+
+// Field-anchored placement (F5): the panel unfolds from the ghost icon, not from
+// a slot — right edges aligned, bottom a gap above the icon, flipping to the
+// other side of the anchor when that leaves the work area, then clamped inside
+// it. Same purity as placeAtSlot: (anchor, size, workArea) in, rect out, with
+// the caller resolving which display's work area applies.
+export function placeNearRect(anchor, size, a) {
+  const { width, height } = capSize(size, a)
+  let x = anchor.x + anchor.width - width
+  if (x < a.x + GAP) x = anchor.x // flip: left-align with the icon instead
+  let y = anchor.y - GAP - height
+  if (y < a.y + GAP) y = anchor.y + anchor.height + GAP // flip: unfold downward
+  return {
+    x: Math.round(clamp(x, a.x + GAP, a.x + a.width - GAP - width)),
+    y: Math.round(clamp(y, a.y + GAP, a.y + a.height - GAP - height)),
+    width,
+    height
+  }
+}
+
+function clamp(v, lo, hi) {
+  return Math.min(Math.max(v, lo), hi)
 }
 
 // Where the user dropped the window → the slot whose resolved position for the

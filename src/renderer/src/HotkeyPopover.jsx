@@ -34,6 +34,7 @@ export default function HotkeyPopover() {
   const [captured, setCaptured] = useState('')
   const [capturedMarkdown, setCapturedMarkdown] = useState(false)
   const [accessibility, setAccessibility] = useState(false)
+  const [anchored, setAnchored] = useState(false) // summoned from the field icon, not the hotkey
   const [providers, setProviders] = useState([])
   const [provider, setProvider] = useState('')
   const [busy, setBusy] = useState(null)
@@ -58,10 +59,11 @@ export default function HotkeyPopover() {
     // #43: sibling of #42 — the show-reset routes through clearPanel so it also
     // bumps the run generation; a transform still pending from the previous
     // summon reads stale and its result never lands under the new capture.
-    const unsubShow = window.api?.onPopoverShow?.(({ text, accessibility: a, markdown: m }) => {
+    const unsubShow = window.api?.onPopoverShow?.(({ text, accessibility: a, markdown: m, anchored: f }) => {
       setCaptured(text || '')
       setCapturedMarkdown(Boolean(m))
       setAccessibility(Boolean(a))
+      setAnchored(Boolean(f))
       clearPanel({
         result: setResult,
         marks: setMarks,
@@ -249,9 +251,9 @@ export default function HotkeyPopover() {
             WebkitAppRegion: 'drag'
           }}
         >
-          {accessibility
-            ? `Select text, then press ${HOTKEY_LABEL}.`
-            : `Copy text (⌘C), then press ${HOTKEY_LABEL}.`}
+          {`${accessibility ? 'Select text' : 'Copy text (⌘C)'}, then ${
+            anchored ? 'click the pencil' : `press ${HOTKEY_LABEL}`
+          }.`}
         </div>
       ) : (
         <>

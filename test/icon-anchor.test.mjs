@@ -1,5 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { iconPosition, intersectRects, createIconFollower, ICON_SIZE } from '../src/main/icon-anchor.js'
 
 const winFrame = { x: 0, y: 0, width: 1512, height: 945 }
@@ -186,4 +187,40 @@ test('unknown or malformed events are ignored', () => {
   assert.equal(f.event({ type: 'heartbeat' }, 0), null)
   assert.equal(f.event(null, 0), null)
   assert.equal(f.event('focus', 0), null)
+})
+
+
+// The click that summons the panel must never take key status from the target
+// app — the synthesized ⌘C grab happens while it is still frontmost. That is a
+// property of the window recipe, so assert the recipe itself (R6).
+test('the ghost icon window stays non-activating and click-through-free', () => {
+  const src = readFileSync(new URL('../src/main/ghost-icon.js', import.meta.url), 'utf8')
+  assert.match(src, /focusable: false/, 'a focusable icon window steals key status from the target app')
+  assert.doesNotMatch(src, /\bwin\.focus\(\)/, 'focusing the icon defeats the non-activating grab')
+  assert.doesNotMatch(
+    src,
+    /setIgnoreMouseEvents\(true\)/,
+    'the icon must receive clicks — M2 unfolds the panel from it'
+  )
+  assert.match(src, /showInactive\(\)/, 'showing must not activate us')
+  // Every bounds event produces a hide (hide-while-moving), so handing the pencil
+  // back to the parked launcher on a bare hide flickers it on every scroll.
+  assert.match(
+    src,
+    /isAnchored\(\)[\s\S]{0,80}?showParkIcon\(/,
+    'the parked launcher may only return when no field is anchored'
+  )
+})
+
+test('isAnchored separates a field in motion from a field that lost focus', () => {
+  const f = createIconFollower()
+  assert.equal(f.isAnchored(), false)
+  f.event(focus(), 0)
+  assert.equal(f.isAnchored(), true)
+  f.event(bounds({ ...field, y: 140 }), 10)
+  assert.equal(f.isAnchored(), true, 'a motion hide is transient — the icon comes back')
+  f.event({ type: 'blur' }, 20)
+  assert.equal(f.isAnchored(), false)
+  f.event(focus(field, { role: 'AXButton' }), 30)
+  assert.equal(f.isAnchored(), false, 'a non-qualifying focus is not an anchor')
 })

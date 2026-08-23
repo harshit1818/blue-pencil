@@ -6,13 +6,18 @@ import { log } from './log.js'
 // Default accelerator; standard combos don't need Accessibility to register.
 const ACCELERATOR = "CommandOrControl+Shift+'"
 
-// Grab-and-show, shared by the hotkey and the parked icon (both fire while the
-// source app is still frontmost — the icon window is non-activating). The
-// in-flight guard makes a double-fire (icon double-click) a no-op: a second
-// concurrent grab would clobber automation.js's single clipboard-restore stash.
+// Grab-and-show, shared by the hotkey and both icons (all fire while the source
+// app is still frontmost — the icon windows are non-activating). The in-flight
+// guard makes a double-fire (icon double-click) a no-op: a second concurrent
+// grab would clobber automation.js's single clipboard-restore stash.
+// anchor: the field icon's rect when the click came from it — the panel then
+// unfolds there instead of at the remembered slot (#57).
 let grabbing = false
-export async function summon() {
-  if (grabbing) return
+export async function summon(anchor) {
+  if (grabbing) {
+    log('summon skipped: a grab is already in flight')
+    return
+  }
   grabbing = true
   try {
     // v1 grab seam: when Accessibility is granted, auto-copy the selection (the
@@ -23,7 +28,7 @@ export async function summon() {
     const t0 = Date.now()
     const { text, markdown } = granted ? await grabSelection() : readClipboardSelection()
     log(`  -> grab done (granted=${granted}, ${Date.now() - t0}ms, chars=${text?.length ?? 0})`)
-    showOverlayAtCursor(text, granted, markdown)
+    showOverlayAtCursor(text, granted, markdown, anchor)
   } finally {
     grabbing = false
   }
