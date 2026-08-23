@@ -1,4 +1,4 @@
-import { BrowserWindow, screen } from 'electron'
+import { app, BrowserWindow, screen } from 'electron'
 import { join } from 'path'
 import { restoreClipboardIfPending } from './automation.js'
 import { placeAtSlot, placeNearRect } from './overlay-slots.js'
@@ -135,9 +135,18 @@ function flush() {
   win.webContents.send('popover:show', { text, accessibility, markdown })
   // showInactive() shows without activating the app, so summoning the overlay
   // doesn't pull the active Space to another display (the "opens on the other
-  // screen, no overlay over fullscreen" bug). focus() then gives it key focus so
-  // Escape/typing work. See docs/decisions/0002-menu-bar-accessory-overlay.md.
+  // screen, no overlay over fullscreen" bug). See
+  // docs/decisions/0002-menu-bar-accessory-overlay.md.
   win.showInactive()
+  // focus() alone is not enough: from a BACKGROUND app macOS ignores the
+  // activation request, so the window never becomes key — measured false a full
+  // second after the call. No key status means no 'blur', and blur-to-dismiss is
+  // the only thing that closes the panel on a click elsewhere, so it sat on
+  // screen forever (intermittently, whenever the deferred activation lost the
+  // race). Stealing activation makes it key in ~30ms. Safe here because the
+  // window is already on this Space, and because the grab's ⌘C has already
+  // landed in the source app by now — paste-back re-activates it explicitly.
+  app.focus({ steal: true })
   win.focus()
   const [x, y] = win.getPosition()
   log(
