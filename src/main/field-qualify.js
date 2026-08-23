@@ -40,6 +40,10 @@ export function qualifies(event, settings = {}) {
   // R2: secure is a hard no, checked first — settings never reach this branch.
   if (SECURE_ROLES.includes(role) || SECURE_ROLES.includes(subrole)) return false
   if (!EDITABLE_ROLES.includes(role)) return false
+  // The "Floating pencil icon" switch means no floating pencil, and the field
+  // icon is one — a live launcher since #57, not decoration. park-icon.js gates
+  // itself on the same setting (default on: undefined must qualify).
+  if (settings.floatIcon === false) return false
   if (denylist(settings).includes(bundleId)) return false
   const w = Number(width)
   const h = Number(height)

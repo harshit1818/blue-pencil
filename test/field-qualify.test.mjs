@@ -74,3 +74,10 @@ test('normalizeDenylist round-trip: trims, drops junk, dedups, idempotent', () =
   assert.deepEqual(normalizeDenylist(undefined), [])
   assert.deepEqual(normalizeDenylist('not-an-array'), [])
 })
+
+test('the "Floating pencil icon" setting governs the field icon too, not just the parked one', () => {
+  const composer = { role: 'AXTextArea', bundleId: 'com.tinyspeck.slackmacgap', width: 600, height: 80 }
+  assert.equal(qualifies(composer, {}), true, 'default is on')
+  assert.equal(qualifies(composer, { floatIcon: true }), true)
+  assert.equal(qualifies(composer, { floatIcon: false }), false, 'off must mean no floating pencil anywhere')
+})

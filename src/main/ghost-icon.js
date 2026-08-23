@@ -54,10 +54,13 @@ function create() {
     // summons — unlike the parked icon, whose renderer can filter to the left
     // button. On a 38px badge a right-click opening the panel is harmless.
     if (input.type !== 'mouseUp' || !onClick) return
-    const anchor = win.getBounds()
-    win.hide() // the panel is this icon, unfolded — never both at once
+    // Deliberately no win.hide() here: the summon can refuse (a grab already in
+    // flight), and hiding first would leave the icon gone with no panel to show
+    // for it until the next helper event. Our app activating for the panel emits
+    // axEnable, which hides it a beat later anyway — and until then the icon
+    // staying put is honest feedback that the ~half-second grab is running.
     log('ghost icon clicked -> summon')
-    onClick(anchor)
+    onClick(win.getBounds())
   })
   win.on('closed', () => {
     win = null
