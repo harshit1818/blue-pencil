@@ -47,7 +47,9 @@ function create() {
   // Clicking into another app dismisses — except mid enable-flow, where opening
   // System Settings blurs us and would otherwise hide the "Restart to enable"
   // footer before it can be read (#9).
+  win.on('focus', () => log('overlay got key focus'))
   win.on('blur', () => {
+    log(`overlay blur -> ${blurDismissSuppressed ? 'suppressed (#9 flow)' : 'dismiss'}`)
     if (blurDismissSuppressed) return
     hideOverlay()
   })
@@ -138,7 +140,10 @@ function flush() {
   win.showInactive()
   win.focus()
   const [x, y] = win.getPosition()
-  log(`flush shown at (${x},${y}) on display=${screen.getDisplayMatching(win.getBounds()).id}`)
+  log(
+    `flush shown at (${x},${y}) on display=${screen.getDisplayMatching(win.getBounds()).id}` +
+      ` focused=${win.isFocused()}`
+  )
 }
 
 // Called (over IPC) when the popover renderer has mounted and attached listeners.
@@ -162,6 +167,7 @@ export function showOverlayAtCursor(text, accessibility, markdown, anchor) {
 export function hideOverlay() {
   blurDismissSuppressed = false // Escape / toggle / paste-back is an explicit dismiss
   const alive = win && !win.isDestroyed() // blur can fire mid-teardown on quit
+  log(`hideOverlay (visible=${Boolean(alive && win.isVisible())}, unfolded=${Boolean(fieldAnchor)})`)
   if (alive && win.isVisible()) win.hide()
   // A grab that was never pasted should leave the user's clipboard as it was.
   restoreClipboardIfPending()

@@ -14,7 +14,10 @@ const ACCELERATOR = "CommandOrControl+Shift+'"
 // unfolds there instead of at the remembered slot (#57).
 let grabbing = false
 export async function summon(anchor) {
-  if (grabbing) return
+  if (grabbing) {
+    log('summon skipped: a grab is already in flight')
+    return
+  }
   grabbing = true
   try {
     // v1 grab seam: when Accessibility is granted, auto-copy the selection (the

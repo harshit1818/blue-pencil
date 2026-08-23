@@ -69,7 +69,13 @@ function create() {
 function run(action) {
   if (!action) return
   if (action.type === 'hide') {
-    if (win && win.isVisible()) win.hide()
+    // Transitions only — a hide arrives on every bounds event, so logging each
+    // one would flood the log during a scroll. A visible→hidden pair here is
+    // exactly what "the icon blinked" looks like.
+    if (win && win.isVisible()) {
+      log('ghost icon hidden')
+      win.hide()
+    }
     // The field is really gone (not just scrolling — a hide arrives on every
     // bounds event) → the parked launcher is the pencil again, unless the panel
     // itself is open, in which case IT is the icon, unfolded.
@@ -84,7 +90,10 @@ function run(action) {
   win.setPosition(action.x, action.y)
   // showInactive: visible without activating us, so the target app keeps key
   // status — same discipline as overlay.js, minus the focus() the overlay needs.
-  if (!win.isVisible()) win.showInactive()
+  if (!win.isVisible()) {
+    log(`ghost icon shown at (${action.x},${action.y})`)
+    win.showInactive()
+  }
 }
 
 function flush() {
